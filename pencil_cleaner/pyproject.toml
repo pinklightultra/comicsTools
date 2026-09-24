@@ -1,0 +1,30 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "pencil-cleaner"
+version = "0.4.9"
+description = "Prep pencil comic pages for inking, strip pencil ghosts, score printer tests, deskew/flatten, cut panels — with a Gradio web app."
+readme = "README.md"
+requires-python = ">=3.8"
+dependencies = [
+    "numpy",
+    "opencv-python-headless",
+    "Pillow",
+    "scipy",
+]
+
+[project.optional-dependencies]
+pdf = ["PyMuPDF"]
+svg = ["cairosvg"]
+marks = ["pypdfium2"]
+web = ["gradio"]
+all = ["PyMuPDF", "cairosvg", "pypdfium2", "gradio"]
+
+[project.scripts]
+pencil-cleaner = "pencil_cleaner.cli:main"
+pencil-cleaner-app = "pencil_cleaner.app:main"
+
+[tool.setuptools.packages.find]
+include = ["pencil_cleaner*"]

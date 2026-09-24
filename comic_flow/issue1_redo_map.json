@@ -1,0 +1,1060 @@
+{
+  "title": "I am the Devil \u2014 Issue 1 Redo Map (pages 5\u201331, option A rematch)",
+  "layout": "DEVIL_ISSUE1_ONESHOT_LAYOUT.md",
+  "assignment_source": "issue1_panel_assignment.json",
+  "pages": {
+    "5": {
+      "title": "Gabi credit / love-her",
+      "beats": [
+        "Credit: Gabi's appointment-book trick",
+        "Gabi: lost my job again / why we're close",
+        "Quiet: love her, but\u2026"
+      ],
+      "verdict": "REDO",
+      "current": [
+        {
+          "file": "page_01_panel_08.png",
+          "shows": "This Word interior + paycheck-cynicism caption (sample leftover)"
+        },
+        {
+          "file": "page_01_panel_09.png",
+          "shows": "Devil peeks over hollowed BIBLE at counter"
+        },
+        {
+          "file": "page_01_panel_10.png",
+          "shows": "Storefront/closing-sale + Zohan-on-phone caption"
+        },
+        {
+          "file": "page_01_panel_11.png",
+          "shows": "Cutaway diagram: hollowed Bible + iPhone (Zohan)"
+        }
+      ],
+      "proposed": [
+        "page_01_panel_12.png",
+        "page_01_panel_13.png"
+      ],
+      "why": "Option A rebuild: kill p4\u2192p5 ten-minutes/Zohan retell. Drop panel_09 (ten minutes) and panel_11 (hollow Bible/Zohan). Keep appointment-book credit (12); pull job-loss closeness (13) from old p6; NEW love-her.",
+      "new_pencil": [
+        "p5 beat3 \u2014 quiet love-her beat (no existing crop)"
+      ],
+      "notes": "Samples p4 already covered clock-in / ten-minutes / Zohan. Do not rematch those beats."
+    },
+    "6": {
+      "title": "Spotty histories",
+      "beats": [
+        "Spotty-histories collage / years 2011\u20132019"
+      ],
+      "verdict": "REDO",
+      "current": [
+        {
+          "file": "page_01_panel_12.png",
+          "shows": "Gabi credit: appointment-book fake-work trick"
+        },
+        {
+          "file": "page_01_panel_13.png",
+          "shows": "Gabi: \"Oh my devil, I lost my job again!\""
+        },
+        {
+          "file": "page_01_panel_14.png",
+          "shows": "Spotty-histories collage / years 2011\u20132019"
+        },
+        {
+          "file": "page_01_panel_15.png",
+          "shows": "Phone screen: Zohan kinda sucks + Sandlerian SFX"
+        }
+      ],
+      "proposed": [
+        "page_01_panel_14.png"
+      ],
+      "why": "Job-loss (13) moved to p5. Drop panel_15 Sandler/Zohan phone \u2014 samples already ended on Zohan; continuing it loops the gag. Thin 1-panel page OK.",
+      "new_pencil": [],
+      "notes": "page_01_panel_15 intentionally dropped (Zohan retell after finished p4)."
+    },
+    "7": {
+      "title": "What would the Zohan do?",
+      "beats": [
+        "Customer appears \u2014 startle",
+        "WHAT WOULD THE ZOHAN DO?",
+        "SITREP montage",
+        "Mall walker: bathroom?"
+      ],
+      "verdict": "REDO",
+      "current": [
+        {
+          "file": "page_02_panel_01.png",
+          "shows": "HEY / Daniel jostle startle (customer appears)"
+        },
+        {
+          "file": "page_02_panel_02.png",
+          "shows": "Corridor rush motion \u2014 A customer?"
+        },
+        {
+          "file": "page_02_panel_03.png",
+          "shows": "Devil mid-lunge: WHAT WOULD THE ZOHAN DO?"
+        },
+        {
+          "file": "page_02_panel_04.png",
+          "shows": "SITREP montage (Ruth's Chris / bro-jacked / bag)"
+        }
+      ],
+      "proposed": [
+        "page_02_panel_01.png",
+        "page_02_panel_03.png",
+        "page_02_panel_04.png",
+        "page_02_panel_05.png"
+      ],
+      "why": "Bathroom ask (05) currently starts p8; pull it onto beat4. Drop or spare motion panel 02.",
+      "new_pencil": [],
+      "notes": ""
+    },
+    "8": {
+      "title": "Vermin",
+      "beats": [
+        "Points to food court / Bless you",
+        "Cold caption: Mall walkers are vermin",
+        "Wide: car in Moe's Employee spot \u2014 Big Mistake"
+      ],
+      "verdict": "REDO",
+      "current": [
+        {
+          "file": "page_02_panel_05.png",
+          "shows": "Mall walker: where bathroom? / getting steps"
+        },
+        {
+          "file": "page_02_panel_06.png",
+          "shows": "Points to food court + Bless you + vermin caption"
+        },
+        {
+          "file": "page_02_panel_07.png",
+          "shows": "Meanwhile\u2026 messy nape / What the what? (salon start)"
+        }
+      ],
+      "proposed": [
+        "page_02_panel_06.png",
+        "page_02_panel_16.png"
+      ],
+      "why": "05 belongs on p7; 07 is salon Meanwhile (belongs on p9). Big Mistake car is page_02_panel_16 (buried on current p10). Panel 06 already carries both food-court AND vermin caption \u2014 use as dual beat.",
+      "new_pencil": [],
+      "notes": "If a dedicated cold vermin-only panel is required later, that would be NEW PENCIL; 06 covers the line today."
+    },
+    "9": {
+      "title": "Salon: rat's ass",
+      "beats": [
+        "Meanwhile\u2026 messy nape",
+        "Gabi: rat's ass / who cut this?",
+        "Eyes: It. Shall. Be. Fixed.",
+        "Multi-arm cut storm"
+      ],
+      "verdict": "REDO",
+      "current": [
+        {
+          "file": "page_02_panel_08.png",
+          "shows": "Gabi: neck looks like a rat's ass"
+        },
+        {
+          "file": "page_02_panel_09.png",
+          "shows": "Salon reverse: lil' tail / Worry not"
+        },
+        {
+          "file": "page_02_panel_10.png",
+          "shows": "Gabi ECU: It. Shall. Be. Fixed."
+        },
+        {
+          "file": "page_02_panel_11.png",
+          "shows": "Multi-arm cut storm"
+        }
+      ],
+      "proposed": [
+        "page_02_panel_07.png",
+        "page_02_panel_08.png",
+        "page_02_panel_10.png",
+        "page_02_panel_11.png"
+      ],
+      "why": "Pull Meanwhile nape (07) from current p8; drop reverse-shot 09 (optional spare).",
+      "new_pencil": [],
+      "notes": ""
+    },
+    "10": {
+      "title": "Tips",
+      "beats": [
+        "Say goodbye to Stuart Little",
+        "RIP / Colby reaction",
+        "Tips start at 20%"
+      ],
+      "verdict": "REDO",
+      "current": [
+        {
+          "file": "page_02_panel_12.png",
+          "shows": "Chaos cut swarm (OW! / Hold still!)"
+        },
+        {
+          "file": "page_02_panel_13.png",
+          "shows": "Say goodbye to Stuart Little (rat-tail snip)"
+        },
+        {
+          "file": "page_02_panel_14.png",
+          "shows": "RIP Stuart / Colby reaction"
+        },
+        {
+          "file": "page_02_panel_15.png",
+          "shows": "Tips start at 20%"
+        },
+        {
+          "file": "page_02_panel_16.png",
+          "shows": "Overhead car in Moe's employee spots \u2014 Big Mistake"
+        }
+      ],
+      "proposed": [
+        "page_02_panel_13.png",
+        "page_02_panel_14.png",
+        "page_02_panel_15.png"
+      ],
+      "why": "Layout wants 3; current dumps 5 including Big Mistake car (16\u2192p8) and cut-chaos (12\u2192spare/optional into p9 storm).",
+      "new_pencil": [],
+      "notes": ""
+    },
+    "11": {
+      "title": "Zohan talk turns",
+      "beats": [
+        "I finally watched Zohan / Huh?",
+        "Gabi ECU: is she serious",
+        "Distress starts",
+        "Lettering storm IT'S OK"
+      ],
+      "verdict": "OK",
+      "current": [
+        {
+          "file": "page_03_panel_01.png",
+          "shows": "Devil: finally watched Zohan / Gabi: Huh?"
+        },
+        {
+          "file": "page_03_panel_02.png",
+          "shows": "Gabi ECU: Is she serious?"
+        },
+        {
+          "file": "page_03_panel_03.png",
+          "shows": "Distress: no one cares / feel like shit"
+        },
+        {
+          "file": "page_03_panel_04.png",
+          "shows": "Lettering storm: IT'S OK repeated"
+        }
+      ],
+      "proposed": [
+        "page_03_panel_01.png",
+        "page_03_panel_02.png",
+        "page_03_panel_03.png",
+        "page_03_panel_04.png"
+      ],
+      "why": "Dense p03 opener maps cleanly to all four beats.",
+      "new_pencil": [],
+      "notes": ""
+    },
+    "12": {
+      "title": "Clock out the spiral",
+      "beats": [
+        "INFRACTION / karmic debt",
+        "Please let's not talk about this here",
+        "Time-o-matic KA-CHUNK \u2014 Gabi 18H"
+      ],
+      "verdict": "REDO",
+      "current": [
+        {
+          "file": "page_03_panel_05.png",
+          "shows": "INFRACTION / karmic debt strip"
+        },
+        {
+          "file": "page_03_panel_06.png",
+          "shows": "Abstract symbol (butterfly/wing)"
+        },
+        {
+          "file": "page_03_panel_07.png",
+          "shows": "Please let's not talk about this here"
+        },
+        {
+          "file": "page_03_panel_08.png",
+          "shows": "Time-o-matic KA-CHUNK \u2014 Gabi Part-Time Max 18H"
+        }
+      ],
+      "proposed": [
+        "page_03_panel_05.png",
+        "page_03_panel_07.png",
+        "page_03_panel_08.png"
+      ],
+      "why": "Drop abstract 06 (or keep as spare INFRACTION art); layout wants 3.",
+      "new_pencil": [],
+      "notes": ""
+    },
+    "13": {
+      "title": "Break / Colleen",
+      "beats": [
+        "I'll give you ten minutes",
+        "Using Colleen's card / I saw you clock out",
+        "Timer motif (10)"
+      ],
+      "verdict": "REDO",
+      "current": [
+        {
+          "file": "page_05_panel_01.png",
+          "shows": "Ten minutes / I saw you clock out / using Colleen's card"
+        },
+        {
+          "file": "page_05_panel_02.png",
+          "shows": "Sandler oeuvre rant (Little Nicky seed) \u2014 deferred"
+        },
+        {
+          "file": "page_05_panel_03.png",
+          "shows": "Little Nicky beat \u2014 deferred"
+        }
+      ],
+      "proposed": [
+        "page_05_panel_01.png"
+      ],
+      "why": "02\u201303 are Sandler/Little Nicky (deferred out of Issue 1). Panel 01 already packs ten-minutes + Colleen card + saw-you-clock-out.",
+      "new_pencil": [
+        "p13 beat3 \u2014 timer motif (10) \u2014 no dedicated crop"
+      ],
+      "notes": "Sandler rant panels 02\u201306 stay unused for this issue."
+    },
+    "14": {
+      "title": "Smoke beat (lean)",
+      "beats": [
+        "Flick / You smoke?",
+        "Herbal for acting class",
+        "Colleen has to clock in \u2014 walk-off"
+      ],
+      "verdict": "REDO",
+      "current": [
+        {
+          "file": "page_05_panel_04.png",
+          "shows": "Zohan hair-cut premise talk \u2014 deferred"
+        },
+        {
+          "file": "page_05_panel_05.png",
+          "shows": "That movie sucked / breaking \u2014 deferred"
+        },
+        {
+          "file": "page_05_panel_06.png",
+          "shows": "Bullshitting me / break almost \u2014 deferred"
+        }
+      ],
+      "proposed": [
+        "page_05_panel_07.png",
+        "page_05_panel_09.png",
+        "page_05_panel_11.png"
+      ],
+      "why": "Current 04\u201306 are more Sandler deferred. Smoke crops 07/09/11 already exist and are currently UNUSED.",
+      "new_pencil": [],
+      "notes": ""
+    },
+    "15": {
+      "title": "Meet Arcade",
+      "beats": [
+        "Ticket papers gust \u2014 HEY",
+        "Masked + thanks for the solid",
+        "Hero: Ronnie Dakota / call me Arcade",
+        "Soft / awkward name beat",
+        "Devil: you were in a Moe's spot\u2026"
+      ],
+      "verdict": "REDO",
+      "current": [
+        {
+          "file": "page_04_panel_07.png",
+          "shows": "Arcade: thanks for the solid earlier"
+        },
+        {
+          "file": "page_04_panel_08.png",
+          "shows": "Arcade awkward apology / vulgar"
+        },
+        {
+          "file": "page_04_panel_09.png",
+          "shows": "Ronnie Dakota / call me Arcade"
+        },
+        {
+          "file": "page_04_panel_10.png",
+          "shows": "Soft awkward name beat"
+        },
+        {
+          "file": "page_04_panel_11.png",
+          "shows": "You were in a Moe's spot\u2026"
+        }
+      ],
+      "proposed": [
+        "page_04_panel_06.png",
+        "page_04_panel_07.png",
+        "page_04_panel_09.png",
+        "page_04_panel_10.png",
+        "page_04_panel_11.png"
+      ],
+      "why": "Builder skipped dense p04 early parking (correct) but also skipped GUST/HEY (06). Drop awkward 08.",
+      "new_pencil": [],
+      "notes": ""
+    },
+    "16": {
+      "title": "Guardian (already-with-him)",
+      "beats": [
+        "Pavement / spot warning",
+        "Arcade: twice in one day / Guardian\u2026",
+        "Gabi already with him at lot (not a surprise meet)"
+      ],
+      "verdict": "REDO",
+      "current": [
+        {
+          "file": "page_04_panel_12.png",
+          "shows": "Twice in one day / like my Guardian\u2026"
+        },
+        {
+          "file": "page_04_panel_13.png",
+          "shows": "Gabi: DEVIL! What're you doing here?"
+        }
+      ],
+      "proposed": [
+        "page_04_panel_12.png"
+      ],
+      "why": "After p14 smoke, page_04_panel_13 ('What're you doing here?') reads as a second meet. No unused parking/Gabi crop assumes they already broke together \u2014 use NEW placeholder instead of surprise panel_13.",
+      "new_pencil": [
+        "p16 beat1 \u2014 pavement / spot-warning establish",
+        "p16 beat3 \u2014 Gabi already-with-him at lot (replaces surprise meet)"
+      ],
+      "notes": "CHOICE: Replace panel_13 with NEW: Gabi already-with-him at lot. Keep smoke on p14 (present-day Act B). Do not pull parking-seminar 01\u201305."
+    },
+    "17": {
+      "title": "FLASHBACK cue",
+      "beats": [
+        "Full-page hard flashback card before Act C"
+      ],
+      "verdict": "REDO",
+      "current": [],
+      "proposed": [],
+      "why": "Option A: keep present-day Gabi (salon+smoke). Cold readers need an unmistakable YEARS EARLIER / How I got here cue before open-mic origin so p19 'met her' is not amnesia.",
+      "new_pencil": [
+        "p17 full page \u2014 FLASHBACK \u2014 How I got here"
+      ],
+      "notes": "Dedicated full page (gray NEW card OK). Inserted; old Act C/D pages shift +1."
+    },
+    "18": {
+      "title": "Open mic cold",
+      "beats": [
+        "Colleen punch KA-CHUNK",
+        "The times are precarious\u2026",
+        "Awful poet at mic",
+        "Same line over Time-o-matic face"
+      ],
+      "verdict": "OK",
+      "current": [
+        {
+          "file": "page_08_panel_01.png",
+          "shows": "Time-o-matic KA-CHUNK \u2014 Colleen Part-time"
+        },
+        {
+          "file": "page_08_panel_02.png",
+          "shows": "Precarious poet line (landscape abstract)"
+        },
+        {
+          "file": "page_08_panel_03.png",
+          "shows": "Precarious line continues (pattern)"
+        },
+        {
+          "file": "page_08_panel_04.png",
+          "shows": "Spiky poet at mic: TIME! / Aw jesus"
+        }
+      ],
+      "proposed": [
+        "page_08_panel_01.png",
+        "page_08_panel_02.png",
+        "page_08_panel_03.png",
+        "page_08_panel_04.png"
+      ],
+      "why": "01\u201304 cover KA-CHUNK, precarious line, and poet TIME!. Beat4 soft-overlap with 01 clock \u2014 acceptable.",
+      "new_pencil": [],
+      "notes": " Was p17 before flashback insert. Keeps page_08_panel_04 (dedup: not also on following page)."
+    },
+    "19": {
+      "title": "Venue bones",
+      "beats": [
+        "Devil on clock: still working / busy today",
+        "Wide: ex-Moe's / diner \u2014 Same decor"
+      ],
+      "verdict": "REDO",
+      "current": [
+        {
+          "file": "page_08_panel_05.png",
+          "shows": "Devil: still on the clock / busy today"
+        },
+        {
+          "file": "page_08_panel_06.png",
+          "shows": "Wide: open mic in ex-Moe's / diner bones"
+        }
+      ],
+      "proposed": [
+        "page_08_panel_05.png",
+        "page_08_panel_06.png"
+      ],
+      "why": "Dedup: page_08_panel_04 stays only on p18 (open mic). Compress to 05\u201306. TIME poet already landed on p18.",
+      "new_pencil": [],
+      "notes": "Was p18 before flashback insert. Dropped duplicate page_08_panel_04."
+    },
+    "20": {
+      "title": "Met Gabi here",
+      "beats": [
+        "This was where I'd met her",
+        "Sign-up list \u2014 not on it",
+        "Wide: Sonic on stage, Gabi at table",
+        "Gabi praise (wrong Emily)"
+      ],
+      "verdict": "OK",
+      "current": [
+        {
+          "file": "page_09_panel_01.png",
+          "shows": "This was where I'd met her (scribble maze)"
+        },
+        {
+          "file": "page_09_panel_02.png",
+          "shows": "Sign-up list \u2014 she's not on it"
+        },
+        {
+          "file": "page_09_panel_03.png",
+          "shows": "Sonic on stage + Gabi at Audience Table"
+        },
+        {
+          "file": "page_09_panel_04.png",
+          "shows": "Gabi praise (Rupi / Emerson / wrong Emily)"
+        }
+      ],
+      "proposed": [
+        "page_09_panel_01.png",
+        "page_09_panel_02.png",
+        "page_09_panel_03.png",
+        "page_09_panel_04.png"
+      ],
+      "why": "Clean 1:1 with dense p09 opener.",
+      "new_pencil": [],
+      "notes": "Was p19 before flashback insert."
+    },
+    "21": {
+      "title": "Sonic & The Light",
+      "beats": [
+        "Emil Dijon / we called him Sonic",
+        "THE LIGHT \u2014 10-min timer",
+        "Never asked better spot; art never got better",
+        "Miss him sometimes"
+      ],
+      "verdict": "OK",
+      "current": [
+        {
+          "file": "page_09_panel_05.png",
+          "shows": "Emil Dijon correction; we called him Sonic"
+        },
+        {
+          "file": "page_09_panel_06.png",
+          "shows": "THE LIGHT \u2014 10-minute timer bulb"
+        },
+        {
+          "file": "page_09_panel_07.png",
+          "shows": "Never asked better spot / miss him sometimes"
+        }
+      ],
+      "proposed": [
+        "page_09_panel_05.png",
+        "page_09_panel_06.png",
+        "page_09_panel_07.png"
+      ],
+      "why": "Layout lists 4 beats; dense only has 3 panels and 07 already carries miss-him + never-asked. Compress OK.",
+      "new_pencil": [],
+      "notes": "Was p20 before flashback insert."
+    },
+    "22": {
+      "title": "Not dead, not flourishing",
+      "beats": [
+        "Wouldn't call it a Dead Mall",
+        "Things that live differently",
+        "Vines on Moe's Coming Soon"
+      ],
+      "verdict": "OK",
+      "current": [
+        {
+          "file": "page_10_panel_01.png",
+          "shows": "Wouldn't call it a Dead Mall"
+        },
+        {
+          "file": "page_10_panel_02.png",
+          "shows": "Things that live differently (rats/hagfish)"
+        },
+        {
+          "file": "page_10_panel_03.png",
+          "shows": "Moe's Coming Soon vines \u2014 surviving isn't flourishing"
+        }
+      ],
+      "proposed": [
+        "page_10_panel_01.png",
+        "page_10_panel_02.png",
+        "page_10_panel_03.png"
+      ],
+      "why": "Exact match.",
+      "new_pencil": [],
+      "notes": "Was p21 before flashback insert."
+    },
+    "23": {
+      "title": "Pringles guy",
+      "beats": [
+        "Young Devil at mic + Respect the Light",
+        "Heckler BOO",
+        "Dabbling / New Sincerity vs cringe",
+        "You look like the Pringles guy!",
+        "Mic KLUNK \u2014 never recovered"
+      ],
+      "verdict": "REDO",
+      "current": [
+        {
+          "file": "page_10_panel_04.png",
+          "shows": "Young Devil at mic + Respect the Light"
+        },
+        {
+          "file": "page_10_panel_05.png",
+          "shows": "Heckler BOO / YOU SUCK"
+        },
+        {
+          "file": "page_10_panel_06.png",
+          "shows": "Dabbling in poetry / started doing mics"
+        },
+        {
+          "file": "page_10_panel_07.png",
+          "shows": "New Sincerity vs cringe (eye ECU)"
+        },
+        {
+          "file": "page_10_panel_08.png",
+          "shows": "You look like the Pringles guy!"
+        }
+      ],
+      "proposed": [
+        "page_10_panel_04.png",
+        "page_10_panel_05.png",
+        "page_10_panel_07.png",
+        "page_10_panel_08.png",
+        "page_10_panel_09.png"
+      ],
+      "why": "KLUNK (09) is currently on p23; pull it onto beat5. Drop dabbling 06 or keep instead of 07 \u2014 proposed keeps New Sincerity eye (07).",
+      "new_pencil": [],
+      "notes": "Was p22 before flashback insert."
+    },
+    "24": {
+      "title": "Aztek / Fresca",
+      "beats": [
+        "Wheel POV sobbing",
+        "2005 Pontiac Aztek",
+        "Trunk full of Fresca"
+      ],
+      "verdict": "REDO",
+      "current": [
+        {
+          "file": "page_10_panel_09.png",
+          "shows": "Mic KLUNK \u2014 never recovered"
+        },
+        {
+          "file": "page_10_panel_10.png",
+          "shows": "2005 Pontiac Aztek / I'm so fucking stupid"
+        },
+        {
+          "file": "page_10_panel_11.png",
+          "shows": "Trunk full of Fresca"
+        }
+      ],
+      "proposed": [
+        "page_10_panel_10.png",
+        "page_10_panel_11.png"
+      ],
+      "why": "09 KLUNK belongs on p22. 10\u201311 cover Aztek + Fresca trunk. No wheel-POV crop.",
+      "new_pencil": [
+        "p24 beat1 \u2014 wheel POV sobbing"
+      ],
+      "notes": "Was p23 before flashback insert."
+    },
+    "25": {
+      "title": "Gabi finds him",
+      "beats": [
+        "Fresca castle",
+        "Are you okay?",
+        "All good / I was not",
+        "You're crying! / It's sweat / heat"
+      ],
+      "verdict": "OK",
+      "current": [
+        {
+          "file": "page_11_panel_01.png",
+          "shows": "Fresca fortress of sweet deals"
+        },
+        {
+          "file": "page_11_panel_02.png",
+          "shows": "Are you okay? (Fresca in glasses)"
+        },
+        {
+          "file": "page_11_panel_03.png",
+          "shows": "All good / whisper: I was not"
+        },
+        {
+          "file": "page_11_panel_04.png",
+          "shows": "You're crying! / It's sweat / heat"
+        }
+      ],
+      "proposed": [
+        "page_11_panel_01.png",
+        "page_11_panel_02.png",
+        "page_11_panel_03.png",
+        "page_11_panel_04.png"
+      ],
+      "why": "Exact match.",
+      "new_pencil": [],
+      "notes": "Was p24 before flashback insert."
+    },
+    "26": {
+      "title": "Gabrielle / ghost",
+      "beats": [
+        "I'm Gabrielle\u2026 most say Gabi",
+        "Brief wry beat (Paul Blart optional \u2014 one max or cut)",
+        "Off-panel: Hey! You're back!",
+        "Empty space \u2014 almost sounded like Sonic"
+      ],
+      "verdict": "REDO",
+      "current": [
+        {
+          "file": "page_11_panel_05.png",
+          "shows": "Really sweating interrogation (eye ECU)"
+        },
+        {
+          "file": "page_11_panel_06.png",
+          "shows": "I'm Gabrielle\u2026 most say Gabi"
+        },
+        {
+          "file": "page_11_panel_07.png",
+          "shows": "Kevin James / King of Queens TV (Blart seed)"
+        },
+        {
+          "file": "page_11_panel_08.png",
+          "shows": "Phone: PAUL BLART"
+        },
+        {
+          "file": "page_11_panel_09.png",
+          "shows": "Off-panel: Hey! You're back! (Bible in hand)"
+        },
+        {
+          "file": "page_11_panel_10.png",
+          "shows": "Empty look \u2014 almost sounded like Sonic"
+        }
+      ],
+      "proposed": [
+        "page_11_panel_06.png",
+        "page_11_panel_09.png",
+        "page_11_panel_10.png"
+      ],
+      "why": "Layout wants \u22644 with Blart optional/cut. Drop sweat-05; drop Blart 07\u201308. Keep intro + ghost pair.",
+      "new_pencil": [],
+      "notes": "Was p25 before flashback insert."
+    },
+    "27": {
+      "title": "Back / ticket",
+      "beats": [
+        "Ticket $127 in hand or machine",
+        "Need that money",
+        "Raccoon face ECU"
+      ],
+      "verdict": "OK",
+      "current": [
+        {
+          "file": "page_12_panel_02.png",
+          "shows": "TICKET $127 PAY OR ELSE"
+        },
+        {
+          "file": "page_12_panel_01.png",
+          "shows": "Raccoon face ECU"
+        }
+      ],
+      "proposed": [
+        "page_12_panel_02.png",
+        "page_12_panel_01.png"
+      ],
+      "why": "MANUAL order: ticket then raccoon. Need-money dialogue lives in 03 on p27 \u2014 acceptable compress.",
+      "new_pencil": [],
+      "notes": "Was p26 before flashback insert."
+    },
+    "28": {
+      "title": "Standoff",
+      "beats": [
+        "Paws on PAY OR ELSE / Put that down",
+        "Wide: raccoon on hood, twitch",
+        "I would never hurt him, or her"
+      ],
+      "verdict": "OK",
+      "current": [
+        {
+          "file": "page_12_panel_03.png",
+          "shows": "Put that down! / I need that money!"
+        },
+        {
+          "file": "page_12_panel_04.png",
+          "shows": "Wide: raccoon on hood with ticket / twitch"
+        },
+        {
+          "file": "page_12_panel_05.png",
+          "shows": "I would never hurt him, or her"
+        }
+      ],
+      "proposed": [
+        "page_12_panel_03.png",
+        "page_12_panel_04.png",
+        "page_12_panel_05.png"
+      ],
+      "why": "MANUAL story order fits.",
+      "new_pencil": [],
+      "notes": "Was p27 before flashback insert."
+    },
+    "29": {
+      "title": "Turning",
+      "beats": [
+        "Eye ECU: what are you turning me into?",
+        "Chaos kick / NO NO NO",
+        "CHOMP held to p29 per MANUAL"
+      ],
+      "verdict": "OK",
+      "current": [
+        {
+          "file": "page_12_panel_06.png",
+          "shows": "Eye ECU: what are you turning me into?"
+        },
+        {
+          "file": "page_12_panel_09.png",
+          "shows": "NO NO NO / LIFT chaos kick"
+        }
+      ],
+      "proposed": [
+        "page_12_panel_06.png",
+        "page_12_panel_09.png"
+      ],
+      "why": "Thin 07/08 correctly filtered. CHOMP on p29 matches locked split.",
+      "new_pencil": [],
+      "notes": "Was p28 before flashback insert."
+    },
+    "30": {
+      "title": "Last straw",
+      "beats": [
+        "Damaged card / $0 hours",
+        "Breath / hollow beat",
+        "WHY IS THIS THE LAST STRAW?"
+      ],
+      "verdict": "REDO",
+      "current": [
+        {
+          "file": "page_12_panel_10.png",
+          "shows": "CHOMP \u2014 Colleen ID / hours wiped"
+        },
+        {
+          "file": "page_12_panel_11.png",
+          "shows": "Hollow face after"
+        }
+      ],
+      "proposed": [
+        "page_12_panel_10.png",
+        "page_12_panel_11.png",
+        "page_12_panel_12.png"
+      ],
+      "why": "Locked layout puts WHY lettering on p29; MANUAL currently parks it alone on p30. Pull 12 onto p29 as beat3.",
+      "new_pencil": [],
+      "notes": "Was p29 before flashback insert."
+    },
+    "31": {
+      "title": "Button",
+      "beats": [
+        "Quiet after \u2014 Devil small in lot",
+        "Optional distant Arcade/Gabi silhouette",
+        "Title tag: I am the Devil / End Issue 1"
+      ],
+      "verdict": "REDO",
+      "current": [
+        {
+          "file": "page_12_panel_12.png",
+          "shows": "WHY IS THIS THE LAST STRAW? lettering"
+        }
+      ],
+      "proposed": [],
+      "why": "After moving WHY to p29, p30 has no quiet-button crop in the pencil set (whale/Home are dense p15 \u2014 out of issue).",
+      "new_pencil": [
+        "p31 \u2014 quiet lot button / End Issue 1 title card"
+      ],
+      "notes": "Do not use dense p13\u201315 (Mikayla / asset-flip / whale) for this button. Was p30 before flashback insert."
+    }
+  },
+  "summary": {
+    "ok": [
+      11,
+      18,
+      20,
+      21,
+      22,
+      25,
+      27,
+      28,
+      29
+    ],
+    "redo": [
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      12,
+      13,
+      14,
+      15,
+      16,
+      17,
+      19,
+      23,
+      24,
+      26,
+      30,
+      31
+    ],
+    "new_pencil_count": 7,
+    "page_count": 31,
+    "option_a": {
+      "keep_smoke": true,
+      "flashback_page": 17,
+      "p5_no_ten_minutes_zohan_retell": true,
+      "p16_no_surprise_meet": true,
+      "dedup_page_08_panel_04": "kept on p18 only"
+    }
+  },
+  "unused_good_panels": [
+    {
+      "file": "page_01_panel_08.png",
+      "shows": "This Word interior + paycheck-cynicism caption (sample leftover)"
+    },
+    {
+      "file": "page_01_panel_10.png",
+      "shows": "Storefront/closing-sale + Zohan-on-phone caption"
+    },
+    {
+      "file": "page_02_panel_02.png",
+      "shows": "Corridor rush motion \u2014 A customer?"
+    },
+    {
+      "file": "page_02_panel_09.png",
+      "shows": "Salon reverse: lil' tail / Worry not"
+    },
+    {
+      "file": "page_02_panel_12.png",
+      "shows": "Chaos cut swarm (OW! / Hold still!)"
+    },
+    {
+      "file": "page_03_panel_06.png",
+      "shows": "Abstract symbol (butterfly/wing)"
+    },
+    {
+      "file": "page_04_panel_08.png",
+      "shows": "Arcade awkward apology / vulgar"
+    },
+    {
+      "file": "page_05_panel_08.png",
+      "shows": "Cannabis? / Weed / herbal setup"
+    },
+    {
+      "file": "page_05_panel_10.png",
+      "shows": "Why? / 1 minute timer tick"
+    },
+    {
+      "file": "page_10_panel_06.png",
+      "shows": "Dabbling in poetry / started doing mics"
+    },
+    {
+      "file": "page_11_panel_05.png",
+      "shows": "Really sweating interrogation (eye ECU)"
+    },
+    {
+      "file": "page_01_panel_09.png",
+      "shows": "Devil peeks over hollowed BIBLE \u2014 ten-minutes narration (dropped: p4 sample already)"
+    },
+    {
+      "file": "page_01_panel_11.png",
+      "shows": "Hollow Bible + iPhone/Zohan diagram (dropped: p4 sample already)"
+    },
+    {
+      "file": "page_01_panel_15.png",
+      "shows": "Phone screen Zohan kinda sucks (dropped: Zohan retell after samples)"
+    },
+    {
+      "file": "page_04_panel_13.png",
+      "shows": "Gabi: DEVIL! What're you doing here? (dropped: surprise meet after smoke)"
+    }
+  ],
+  "intentionally_unused": {
+    "parking_seminar_dense_p04_early": [
+      "page_04_panel_01.png",
+      "page_04_panel_02.png",
+      "page_04_panel_03.png",
+      "page_04_panel_04.png",
+      "page_04_panel_05.png"
+    ],
+    "sandler_little_nicky_deferred": [
+      "page_05_panel_02.png",
+      "page_05_panel_03.png",
+      "page_05_panel_04.png",
+      "page_05_panel_05.png",
+      "page_05_panel_06.png"
+    ],
+    "paul_blart_optional_cut": [
+      "page_11_panel_07.png",
+      "page_11_panel_08.png"
+    ],
+    "thin_garbage": [
+      "page_12_panel_07.png",
+      "page_12_panel_08.png"
+    ],
+    "sample_territory_dense_p01_01_07": [
+      "page_01_panel_01.png",
+      "page_01_panel_02.png",
+      "page_01_panel_03.png",
+      "page_01_panel_04.png",
+      "page_01_panel_05.png",
+      "page_01_panel_06.png",
+      "page_01_panel_07.png"
+    ],
+    "p4_p5_retell_dropped_option_a": [
+      "page_01_panel_09.png",
+      "page_01_panel_11.png",
+      "page_01_panel_15.png"
+    ],
+    "p16_surprise_meet_after_smoke": [
+      "page_04_panel_13.png"
+    ]
+  },
+  "dense_06_07": {
+    "usable_for_issue1_act_bc": false,
+    "reason": "Emily Clair / Eclair Capital \u2014 locked OUT of Issue 1 (held for #2).",
+    "panels": [
+      "page_06_panel_01.png",
+      "page_06_panel_02.png",
+      "page_06_panel_03.png",
+      "page_06_panel_04.png",
+      "page_06_panel_05.png",
+      "page_06_panel_06.png",
+      "page_06_panel_07.png",
+      "page_06_panel_08.png",
+      "page_06_panel_09.png",
+      "page_06_panel_10.png",
+      "page_06_panel_11.png",
+      "page_07_panel_01.png",
+      "page_07_panel_02.png",
+      "page_07_panel_03.png",
+      "page_07_panel_04.png",
+      "page_07_panel_05.png",
+      "page_07_panel_06.png",
+      "page_07_panel_07.png",
+      "page_07_panel_08.png"
+    ],
+    "feeds": "Issue 2+ Emily Clair cold-open \u2014 do not rematch into Act B/C gaps"
+  },
+  "dense_13_15": {
+    "usable_for_issue1": false,
+    "reason": "Mikayla / asset-flip / whale\u2192Home \u2014 locked OUT of Issue 1"
+  }
+}

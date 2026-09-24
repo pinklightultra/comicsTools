@@ -1,0 +1,9 @@
+# Runtime deps for Hugging Face Spaces (Gradio SDK) and local web use.
+numpy
+opencv-python-headless
+Pillow
+scipy
+gradio
+PyMuPDF
+cairosvg
+pypdfium2

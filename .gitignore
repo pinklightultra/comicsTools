@@ -1,0 +1,23 @@
+# Python virtual environments & bytecode
+.venv/
+*/.venv/
+__pycache__/
+*/__pycache__/
+*/*/__pycache__/
+*.py[cod]
+*$py.class
+
+# Packaging & build artifacts
+*.egg-info/
+*/.egg-info/
+*/*.egg-info/
+dist/
+build/
+eggs/
+.eggs/
+
+# Comic projects & temporary files
+*.comiccrop
+.DS_Store
+Thumbs.db
+*.log

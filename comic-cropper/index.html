@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Comic Cropper</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div id="app">
+    <header class="toolbar">
+      <div class="brand">
+        <span class="brand-mark" aria-hidden="true">✦</span>
+        <div class="brand-text">
+          <h1>Comic Cropper</h1>
+          <span class="brand-tag">studio desk</span>
+        </div>
+      </div>
+
+      <div class="toolbar-group">
+        <label class="btn btn-primary">
+          Drop a scan
+          <input type="file" id="file-input" accept="image/png,image/jpeg,image/webp,image/tiff,image/gif,application/pdf,.png,.jpg,.jpeg,.webp,.tif,.tiff,.gif,.pdf" multiple hidden />
+        </label>
+        <button type="button" class="btn" id="btn-open-project" title="Open .comiccrop studio file (Ctrl/Cmd+O)">Open studio</button>
+        <button type="button" class="btn" id="btn-save-project" title="Save .comiccrop (Ctrl/Cmd+S)">Studio save</button>
+        <input type="file" id="project-input" accept=".comiccrop,.zip,application/zip" hidden />
+      </div>
+
+      <div class="toolbar-group">
+        <button type="button" class="btn" id="btn-zoom-out" title="Zoom out">−</button>
+        <span class="zoom-label" id="zoom-label">100%</span>
+        <button type="button" class="btn" id="btn-zoom-in" title="Zoom in">+</button>
+        <button type="button" class="btn" id="btn-zoom-fit" title="Fit to view (F)">Fit</button>
+        <button type="button" class="btn" id="btn-zoom-100" title="Actual size (1)">100%</button>
+      </div>
+
+      <div class="toolbar-group">
+        <label class="toggle" title="Lock aspect ratio while drawing/resizing">
+          <input type="checkbox" id="toggle-aspect" />
+          <span>Aspect lock</span>
+        </label>
+        <label class="toggle" title="Snap crop edges to a grid">
+          <input type="checkbox" id="toggle-snap" />
+          <span>Snap</span>
+        </label>
+      </div>
+
+      <div class="toolbar-group view-mode-group" title="Display only — exports stay true to the scan">
+        <span class="group-label">Pencil view</span>
+        <select id="view-mode" class="toolbar-select" aria-label="Pencil view mode">
+          <option value="off" selected>Off</option>
+          <option value="blueline">Blue-line</option>
+          <option value="contrast">High-contrast</option>
+        </select>
+      </div>
+
+      <div class="toolbar-group rotate-group">
+        <button type="button" class="btn" id="btn-rotate-ccw" title="Rotate page 90° counter-clockwise">⟲ 90°</button>
+        <button type="button" class="btn" id="btn-rotate-cw" title="Rotate page 90° clockwise">⟳ 90°</button>
+        <label class="field-inline" title="Fine straighten — live preview, then Apply">
+          <span>Straighten</span>
+          <input type="range" id="straighten-angle" min="-15" max="15" step="0.1" value="0" />
+          <span class="angle-readout" id="straighten-readout">0°</span>
+        </label>
+        <button type="button" class="btn btn-sm" id="btn-apply-straighten" disabled title="Bake straighten into the page image">Apply</button>
+        <button type="button" class="btn btn-sm" id="btn-reset-straighten" disabled title="Reset straighten preview">Reset</button>
+      </div>
+
+      <div class="toolbar-group delight-toggles">
+        <label class="toggle" title="Soft click when you nab a panel (off by default)">
+          <input type="checkbox" id="toggle-sfx" />
+          <span>Sound</span>
+        </label>
+        <label class="toggle" title="Ink-splash on export (respects Reduce motion / prefers-reduced-motion)">
+          <input type="checkbox" id="toggle-confetti" checked />
+          <span>Flourish</span>
+        </label>
+      </div>
+
+      <div class="toolbar-group toolbar-end">
+        <span class="ink-ready" id="ink-ready" hidden></span>
+        <span class="status" id="status-text">Ready when you are</span>
+        <span class="autosave-badge" id="autosave-badge" hidden>Stashed locally</span>
+      </div>
+    </header>
+
+    <div class="main">
+      <aside class="sidebar" id="sidebar">
+        <div class="sidebar-section">
+          <div class="sidebar-head">
+            <h2>Pages</h2>
+            <span class="count" id="page-count">0</span>
+          </div>
+          <ul class="page-list" id="page-list"></ul>
+          <p class="sidebar-hint" id="page-hint">Drop a scan on the desk.</p>
+        </div>
+
+        <div class="sidebar-section">
+          <div class="sidebar-head">
+            <h2>Panels</h2>
+            <span class="count" id="panel-count">0</span>
+          </div>
+          <ul class="panel-list" id="panel-list"></ul>
+          <div class="sidebar-actions">
+            <button type="button" class="btn btn-sm" id="btn-delete-crop" disabled title="Delete selected (Del)">Delete</button>
+            <button type="button" class="btn btn-sm" id="btn-rename-crop" disabled>Rename</button>
+          </div>
+        </div>
+      </aside>
+
+      <section class="workspace">
+        <div class="paper-texture" aria-hidden="true"></div>
+        <div class="canvas-wrap" id="canvas-wrap">
+          <div class="empty-state" id="empty-state">
+            <div class="empty-card">
+              <p class="empty-kicker">Pencils in · ink later</p>
+              <h2>Frame the tiny panels.<br />Blow them up. Go ink.</h2>
+              <ol>
+                <li><strong>Import</strong> a penciled scan — the smaller the panels, the better this feels.</li>
+                <li><strong>Drag</strong> a box around each panel like you’re marking boards.</li>
+                <li><strong>Export</strong> at 3× (default) PNG so inking isn’t a squint contest.</li>
+                <li><strong>Save</strong> a <code>.comiccrop</code> so layout-you can thank crop-you later.</li>
+              </ol>
+              <div class="empty-chips">
+                <span class="chip"><kbd>Scroll</kbd> zoom</span>
+                <span class="chip"><kbd>Space</kbd> pan</span>
+                <span class="chip"><kbd>Del</kbd> ditch panel</span>
+                <span class="chip"><kbd>⌘S</kbd> save</span>
+                <span class="chip"><kbd>⌘E</kbd> export all</span>
+                <span class="chip"><kbd>←→</kbd> nudge</span>
+              </div>
+              <label class="btn btn-primary btn-lg">
+                Drop a scan
+                <input type="file" id="file-input-empty" accept="image/png,image/jpeg,image/webp,image/tiff,image/gif,application/pdf,.png,.jpg,.jpeg,.webp,.tif,.tiff,.gif,.pdf" multiple hidden />
+              </label>
+            </div>
+          </div>
+          <canvas id="main-canvas" tabindex="0"></canvas>
+          <canvas id="fx-canvas" class="fx-canvas" aria-hidden="true"></canvas>
+        </div>
+      </section>
+
+      <aside class="inspector" id="inspector">
+        <div class="sidebar-section">
+          <h2>Close-up</h2>
+          <div class="preview-box" id="preview-box">
+            <canvas id="preview-canvas"></canvas>
+            <p class="preview-empty" id="preview-empty">Pick a panel — close-up lives here.</p>
+          </div>
+        </div>
+
+        <div class="sidebar-section">
+          <h2>Ship for inking</h2>
+          <label class="field">
+            <span>Scale</span>
+            <select id="export-scale">
+              <option value="1">1× (original)</option>
+              <option value="2">2× — cozy</option>
+              <option value="3" selected>3× — roomy</option>
+              <option value="4">4× — billboard</option>
+              <option value="custom">Custom %</option>
+            </select>
+          </label>
+          <label class="field" id="custom-scale-field" hidden>
+            <span>Custom %</span>
+            <input type="number" id="export-scale-custom" min="10" max="800" step="10" value="300" />
+          </label>
+          <label class="field">
+            <span>Bleed <span class="field-hint">(source px)</span></span>
+            <input type="range" id="export-bleed" min="0" max="64" step="1" value="12" />
+            <span class="bleed-readout" id="bleed-readout">12 px</span>
+          </label>
+          <label class="field">
+            <span>Format</span>
+            <select id="export-format">
+              <option value="png" selected>PNG (lossless)</option>
+              <option value="jpeg">JPEG</option>
+            </select>
+          </label>
+          <label class="field" id="jpeg-quality-field" hidden>
+            <span>JPEG quality</span>
+            <input type="range" id="export-jpeg-quality" min="0.5" max="1" step="0.05" value="0.92" />
+          </label>
+          <div class="export-actions">
+            <button type="button" class="btn btn-primary" id="btn-export-one" disabled>Export panel</button>
+            <button type="button" class="btn" id="btn-export-all" disabled title="Export all panels (Ctrl/Cmd+E)">Export all</button>
+            <button type="button" class="btn" id="btn-export-zip" disabled>Ink-ready ZIP</button>
+            <button type="button" class="btn" id="btn-contact-sheet" disabled title="All panels on one labeled PNG sheet">Contact sheet</button>
+          </div>
+          <p class="inspector-note">
+            Tip: default 3× + soft bleed keeps enlarged inks from clipping at the edge. Upscaling is browser canvas — sharp enough for pencils; re-export from the project anytime. Pencil view is display-only.
+          </p>
+        </div>
+
+        <div class="sidebar-section">
+          <h2>Muscle memory</h2>
+          <ul class="shortcuts">
+            <li><span class="chip"><kbd>Drag</kbd></span> draw crop</li>
+            <li><span class="chip"><kbd>Space</kbd>+drag</span> pan</li>
+            <li><span class="chip"><kbd>Scroll</kbd></span> zoom</li>
+            <li><span class="chip"><kbd>Z</kbd> / <kbd>F</kbd></span> zoom / fit</li>
+            <li><span class="chip"><kbd>Del</kbd></span> delete panel</li>
+            <li><span class="chip"><kbd>←↑↓→</kbd></span> nudge 1px</li>
+            <li><span class="chip"><kbd>Shift+arrows</kbd></span> nudge 10px</li>
+            <li><span class="chip"><kbd>⌘/Ctrl+S</kbd></span> save</li>
+            <li><span class="chip"><kbd>⌘/Ctrl+E</kbd></span> export all</li>
+          </ul>
+        </div>
+      </aside>
+    </div>
+
+    <div class="drop-overlay" id="drop-overlay" hidden>
+      <div class="drop-card">
+        <span class="drop-burst" aria-hidden="true">✦</span>
+        Drop scans, PDFs, or a <code>.comiccrop</code> — we’ll catch it.
+      </div>
+    </div>
+
+    <div class="modal" id="recover-modal" hidden>
+      <div class="modal-card">
+        <p class="empty-kicker">Plot twist</p>
+        <h2>Recovered local project</h2>
+        <p id="recover-text">A previous session was autosaved in this browser. Restore it?</p>
+        <div class="modal-actions">
+          <button type="button" class="btn btn-primary" id="btn-recover-yes">Restore</button>
+          <button type="button" class="btn" id="btn-recover-no">Start fresh</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="toast-stack" class="toast-stack" aria-live="polite"></div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.min.js"></script>
+  <script>
+    if (window.pdfjsLib) {
+      pdfjsLib.GlobalWorkerOptions.workerSrc =
+        "https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.worker.min.js";
+    }
+  </script>
+  <script src="app.js"></script>
+</body>
+</html>
