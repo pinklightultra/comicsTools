@@ -1,4 +1,4 @@
-# pencil_cleaner
+# traceJockey // cleaner (`pencil_cleaner`)
 
 Tools for hand-drawn comics that go **pencil → print → ink → scan**,
 plus printer-test scoring, deskew/flatten, panel cutting, optional
@@ -34,8 +34,7 @@ Prep and clean work on a single image or a whole multi-page PDF.
 ## Install
 
 ```bash
-pip install -e "/workspace/pencil_cleaner"
-# or, from the project folder:
+cd pencil_cleaner
 pip install -e .
 # web UI + PDF + SVG + corner-mark PDF support:
 pip install -e ".[all]"
@@ -73,15 +72,16 @@ Six tabs:
 ### Run locally
 
 ```bash
-pip install -e "/workspace/pencil_cleaner[web]"
+cd pencil_cleaner
+pip install -e ".[web]"
 # optional PDF/SVG/marks support:
-pip install -e "/workspace/pencil_cleaner[all]"
+pip install -e ".[all]"
 
 pencil-cleaner-app
 # or:
 python -m pencil_cleaner app
 # or:
-python /workspace/pencil_cleaner/app.py
+python app.py
 ```
 
 Then open **http://127.0.0.1:7860** (Gradio default). The app binds

@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "pencil-cleaner"
 version = "0.4.9"
-description = "Prep pencil comic pages for inking, strip pencil ghosts, score printer tests, deskew/flatten, cut panels — with a Gradio web app."
+description = "traceJockey linework cleaner: prep comic pencils, strip pencil ghosts, score printer tests, deskew/flatten, and cut panels."
 readme = "README.md"
 requires-python = ">=3.8"
 dependencies = [

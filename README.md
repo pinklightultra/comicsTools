@@ -1,44 +1,81 @@
-# Justin’s Comic Tools (complete pack)
+# traceJockey
 
-Local toolkit for the pencil → crop/enlarge → print-ghost → ink → clean → layout loop.
+> *A specialized toolkit for the hybrid pencil-to-ink comic pipeline.*
 
-## What’s inside
+**traceJockey** is an open-source, local-first cartooning suite built for artists working in the hybrid physical/digital comic loop:
 
-| Folder | What it is |
-|--------|------------|
-| `comic-cropper/` | Browser app: import scans/PDF, crop panels, 3× export + bleed, blue-line view, contact sheet, straighten, save `.comiccrop` projects |
-| `pencil_cleaner/` | Python + Gradio app: prep pencils for print-ink, remove pencil ghost from inked scans, deskew, panel cutter, printer-test scorer, corner-mark cleanup |
-| `comic_flow/` | Issue builders + continuity/layout docs for **Devil in Orlando** (scripts + JSON/MD; not the giant preview image dumps) |
+$$\text{Pencil Roughs} \longrightarrow \text{Panel Isolation / 3× Blowup} \longrightarrow \text{Laser Ghost Print} \longrightarrow \text{Physical Ink} \longrightarrow \text{Scan & Extraction} \longrightarrow \text{Layout}$$
 
-## Suggested workflow
+Standard digital art programs assume you either work 100% digitally or use non-photo blue pencils. If you print laser toner "ghosts" on Bristol paper to ink over with dip pens and brushes, toner is carbon-based—meaning you cannot simply drop a color channel. **traceJockey** handles panel isolation, ghost calibration, stroke-geometry ink separation, and vectorization out of the box.
 
-1. **Crop / enlarge** — open Comic Cropper, frame small pencils, export 3× with bleed for inking or layout.
-2. **Prep for print-ink** (optional) — `pencil_cleaner` → Prep pencils for printing → faint laser ghost on paper → ink over.
-3. **Clean inked scans** — `pencil_cleaner` → Clean inked scans / mark cleanup.
-4. **Layout / issue assembly** — Comic Cropper contact sheet, or `comic_flow` builders with panel assignment JSON.
+---
 
-## Quick start
+## The Toolkit
 
-### Comic Cropper
+| Component | Interface | Purpose |
+| :--- | :--- | :--- |
+| [**`comic-cropper/`**](comic-cropper/) | Local Web App (Browser) | Import scans or multi-page PDFs, frame small pencil panels, export at 1×–4× (default 3×) with soft bleed, display blue-line/high-contrast views, generate contact sheets, and save `.comiccrop` project files. |
+| [**`pencil_cleaner/`**](pencil_cleaner/) | Python CLI & Gradio Web UI | Prep faint printable pencil ghosts, extract ink lines from scanned pages (via levels, morphological stroke filtering, or `potrace` vector tracing), deskew scans, auto-detect gutters / cut panels, and score printer-test swatches. |
+
+---
+
+## Suggested Workflow
+
+1. **Panel Isolation & Enlargement** (`comic-cropper`)
+   - Draw thumbnail or page layouts on paper or digitally.
+   - Load scans or PDFs into **Comic Cropper**, draw panel bounds, and export 300% enlarged panels with bleed.
+2. **Ghost Print Prep** (`pencil_cleaner`)
+   - Run `prep_pencils_for_printing` to lighten pencil linework into a faint, calibrated grey ghost.
+   - Print directly onto Bristol board or watercolor paper using a mono laser printer.
+3. **Physical Inking**
+   - Ink over the faint laser ghost using your choice of tools (dip pens, sable brushes, markers, ink wash).
+4. **Linework Restoration & Vectorization** (`pencil_cleaner`)
+   - Scan the inked page.
+   - Use `remove_pencils` with `method="morphological"` or `method="vector"` to strip residual toner specks, eraser smudges, and paper grain while preserving sharp, organic ink edges.
+   - Optionally export resolution-independent `.svg` vector linework.
+
+---
+
+## Quick Start
+
+### 1. Comic Cropper (Web Console)
+
+A zero-build, local-first browser tool running purely on HTML5/Canvas/Vanilla JS.
+
 ```bash
 cd comic-cropper
 python3 -m http.server 8765
-# open http://127.0.0.1:8765
 ```
-Needs network once for PDF.js / JSZip CDN.
+Open **`http://127.0.0.1:8765`** in your browser.
 
-### pencil_cleaner
+*Features: Arrow-key nudging (1px / 10px), grid snapping, 90° rotation & fine straighten, dashed bleed previews, and `.comiccrop` project archive save/load.*
+
+---
+
+### 2. Pencil Cleaner (Python & Gradio Console)
+
 ```bash
 cd pencil_cleaner
-python3 -m venv .venv && source .venv/bin/activate
+
+# Create & activate a virtual environment
+python3 -m venv .venv
+source .venv/bin/activate
+
+# Install all dependencies (Web UI, PDF, SVG, Corner-marks)
 pip install -e ".[all]"
+
+# (Optional Linux system dependency for vector tracing)
+# sudo apt-get install -y potrace
+
+# Launch the Gradio web interface
 pencil-cleaner-app
+# Or run CLI:
+# python -m pencil_cleaner --help
 ```
+Open **`http://127.0.0.1:7860`** in your browser.
 
-### comic_flow
-See markdown files in `comic_flow/` (`DEVIL_COMIC_CONTINUITY.md`, redo maps, page flow). Run builders with Python when panel assets are available:
-`build_boards.py`, `build_issue1.py`, `build_pdf.py`.
+---
 
-## Notes
-- Packed without `pencil_cleaner/.venv` (recreate with pip).
-- Excluded bulky `comic_flow/naive_read` previews and multi‑MB issue PDFs to keep this tools zip lean. Those live on the box under `/workspace/comic_flow/` if you need them.
+## License & Attribution
+
+Open-source and modular for cartoonists, illustrators, and indie comic publishers.

@@ -480,7 +480,9 @@ def run_panels(
 # ---------------------------------------------------------------------------
 
 INTRO = """
-# pencil_cleaner
+# traceJockey // cleaner
+
+**Optical Inking & Linework Restoration System**
 
 **Workflow:** draw in pencil → prep & print a faint ghost → ink on paper → scan → clean.
 
@@ -494,7 +496,7 @@ def build_demo():
     """Construct the Gradio Blocks demo (does not launch)."""
     import gradio as gr
 
-    with gr.Blocks(title="pencil_cleaner") as demo:
+    with gr.Blocks(title="traceJockey // cleaner") as demo:
         gr.Markdown(INTRO)
 
         with gr.Tabs():

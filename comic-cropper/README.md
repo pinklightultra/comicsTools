@@ -1,8 +1,8 @@
-# Comic Cropper
+# traceJockey // cropper
 
-Local-first web app for cropping small penciled comic panels, exporting them enlarged for inking, and saving a project you can reopen later for layout.
+Local-first web application for isolating penciled comic panels, exporting them enlarged for physical inking, and saving project state for layout assembly.
 
-Built for Justin’s scan → crop → ink-large → layout workflow. Runs fully offline in the browser (no backend) once CDN assets are cached.
+Designed for the scan → isolate/enlarge → print-ghost → ink-large → layout workflow. Runs fully offline in the browser (no backend) once CDN assets are cached.
 
 ## How to run
 

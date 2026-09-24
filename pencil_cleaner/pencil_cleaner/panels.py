@@ -4,7 +4,7 @@ Comic panel cutter.
 Finds panel borders (horizontal/vertical gutters) and exports each
 panel as a separate PNG, plus an annotated overview with boxes.
 
-Primary strategy (Justin / Devil-in-Orlando heuristic):
+Primary strategy (gutter & edge density heuristic):
   1. Trace candidate panel *edges* (high ink density in a row/col band).
   2. Confirm a gutter by checking a thin strip *below* a horizontal edge
      (or *to the right* of a vertical edge): mostly white paper → real
@@ -67,7 +67,7 @@ def _strip_is_white(
     white_thr: int = 200,
     min_white_frac: float = 0.55,
 ) -> bool:
-    """Justin heuristic: after an edge, is the adjacent strip gutter paper?
+    """Gutter paper heuristic: after an edge, is the adjacent strip gutter paper?
 
     axis='h': edge is a horizontal line at row ``edge_pos``; inspect rows
     just *below* it within columns [lo, hi).
@@ -306,7 +306,7 @@ def _recursive_projection_boxes(
     min_panel_px: int,
     min_gutter_px: int,
 ) -> List[Box]:
-    """Row-then-col split using Justin white-below / white-right + right-angle checks."""
+    """Row-then-col split using white-below / white-right + right-angle checks."""
     g = _to_uint8(gray)
     H, W = g.shape
     dark = (255.0 - g.astype(np.float32)) / 255.0
@@ -611,7 +611,7 @@ def _border_greedy_boxes(
     min_area: float,
     min_panel_px: int,
 ) -> List[Box]:
-    """Row/col cutter for dense pencil grids (Justin white-below / RA).
+    """Row/col cutter for dense pencil grids (white-below / RA).
 
     1. Strong horizontal morph borders → rows (white-below or dens+RA rescue).
     2. Per row: spanning vertical borders with nearby paper gutter
@@ -666,7 +666,7 @@ def _border_greedy_boxes(
             else 0.0
         )
         ra = _right_angle_support(g, "h", y, int(W * 0.06), int(W * 0.94))
-        # Justin white-below / RA acceptance
+        # White-below / RA acceptance
         ok = False
         if dens >= h_dens_min and wb >= min_white_h:
             ok = True
@@ -845,7 +845,7 @@ def _border_greedy_boxes(
             else:
                 cut_x = x
             # Reject cuts that create a sliver unless the immediate
-            # white-to-the-right gutter is convincing (Justin heuristic).
+            # white-to-the-right gutter is convincing (gutter heuristic).
             left_w = (cut_x - x0) / float(W)
             right_w = (x1 - cut_x) / float(W)
             if min(left_w, right_w) < 0.18:
@@ -960,7 +960,7 @@ def _split_one_wide_merge(
     """If exactly one box is a clear side-by-side merge, split it once.
 
     Requires a high-span vertical border in the middle third with nearby
-    paper (Justin white-to-the-right / near-white). Used to recover a
+    paper (white-to-the-right / near-white). Used to recover a
     single missed V gutter without over-splitting intentional wide panels
     that lack a spanning mid border.
     """
@@ -1080,7 +1080,7 @@ def _rescue_underseg_boxes(
     """One-level V/H split of mega-panels when the page is clearly under-cut.
 
     Only runs for very low panel counts (≤5) so correct sparse pages
-    (e.g. 6-panel grids) are left alone. Uses Justin white-below/right
+    (e.g. 6-panel grids) are left alone. Uses white-below/right
     and right-angle checks with slightly relaxed dens for dirty pencil.
     """
     g = _to_uint8(gray)
