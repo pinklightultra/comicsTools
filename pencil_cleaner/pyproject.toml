@@ -20,11 +20,15 @@ pdf = ["PyMuPDF"]
 svg = ["cairosvg"]
 marks = ["pypdfium2"]
 web = ["gradio"]
-all = ["PyMuPDF", "cairosvg", "pypdfium2", "gradio"]
+tui = ["textual", "rich"]
+gpu = ["torch"]
+all = ["PyMuPDF", "cairosvg", "pypdfium2", "gradio", "textual", "rich"]
 
 [project.scripts]
 pencil-cleaner = "pencil_cleaner.cli:main"
 pencil-cleaner-app = "pencil_cleaner.app:main"
+tracejockey = "pencil_cleaner.cli:main"
+tracejockey-tui = "pencil_cleaner.tui:main"
 
 [tool.setuptools.packages.find]
 include = ["pencil_cleaner*"]

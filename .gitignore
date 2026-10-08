@@ -21,3 +21,8 @@ eggs/
 .DS_Store
 Thumbs.db
 *.log
+*.svg
+print_me.pdf
+clean_page.png
+panels_out/
+inked/

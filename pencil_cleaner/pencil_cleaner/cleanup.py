@@ -61,7 +61,7 @@ from PIL import Image
 from ._pageio import load_gray, pdf_to_gray_pages, save_pages_as_pdf
 
 Array = np.ndarray
-METHODS = ("levels", "morphological", "vector")
+METHODS = ("levels", "morphological", "vector", "gpu")
 
 
 # ---------------------------------------------------------------------------
@@ -293,6 +293,19 @@ def _run_method(
             white=white,
             gamma=gamma,
             svg_output_path=svg_output_path,
+        )
+    if method == "gpu":
+        from .gpu import gpu_clean
+        return (
+            gpu_clean(
+                gray,
+                dark_thresh=dark_thresh,
+                min_stroke_px=min_stroke_px,
+                black=black,
+                white=white,
+                gamma=gamma,
+            ),
+            False,
         )
     raise ValueError(f"method must be one of {METHODS}, got {method!r}")
 

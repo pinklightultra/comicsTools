@@ -76,6 +76,14 @@ from .printer_test import PrinterTestResult, SwatchScore, score_printer_test
 from .deskew import deskew_flatten, deskew_array, flatten_lighting, estimate_skew_angle
 from .panels import PanelCutError, cut_panels, find_panel_boxes
 
+from .gpu import (
+    is_gpu_available,
+    get_gpu_info,
+    gpu_clean,
+    gpu_vector_clean,
+    compute_scan_metrics,
+)
+
 __all__ = [
     "prep_pencils_for_printing",
     "prep_pdf_for_printing",
@@ -100,6 +108,11 @@ __all__ = [
     "cut_panels",
     "find_panel_boxes",
     "PanelCutError",
+    "is_gpu_available",
+    "get_gpu_info",
+    "gpu_clean",
+    "gpu_vector_clean",
+    "compute_scan_metrics",
 ]
 
 __version__ = "0.4.9"

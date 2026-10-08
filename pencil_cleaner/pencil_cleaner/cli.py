@@ -124,7 +124,30 @@ def main(argv=None) -> int:
     p_app = sub.add_parser("app", help="launch the Gradio web app")
     # no required args — app launches immediately
 
+    p_tui = sub.add_parser("tui", help="launch the interactive terminal user interface (TUI)")
+    p_gpu = sub.add_parser("gpu-info", help="display NVIDIA GPU hardware and acceleration status")
+
     args = parser.parse_args(argv)
+
+    if args.command == "tui":
+        from .tui import main as tui_main
+
+        return tui_main()
+
+    if args.command == "gpu-info":
+        from .gpu import get_gpu_info
+        from rich.console import Console
+        from rich.table import Table
+
+        c = Console()
+        info = get_gpu_info()
+        tbl = Table(title="traceJockey Accelerator Telemetry", border_style="green")
+        tbl.add_column("Property", style="cyan")
+        tbl.add_column("Value", style="bold white")
+        for k, v in info.items():
+            tbl.add_row(k.replace("_", " ").title(), str(v))
+        c.print(tbl)
+        return 0
 
     if args.command == "app":
         from .app import main as app_main

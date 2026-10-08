@@ -15,7 +15,7 @@ Standard digital art programs assume you either work 100% digitally or use non-p
 | Component | Interface | Purpose |
 | :--- | :--- | :--- |
 | [**`comic-cropper/`**](comic-cropper/) | Local Web App (Browser) | Import scans or multi-page PDFs, frame small pencil panels, export at 1×–4× (default 3×) with soft bleed, display blue-line/high-contrast views, generate contact sheets, and save `.comiccrop` project files. |
-| [**`pencil_cleaner/`**](pencil_cleaner/) | Python CLI & Gradio Web UI | Prep faint printable pencil ghosts, extract ink lines from scanned pages (via levels, morphological stroke filtering, or `potrace` vector tracing), deskew scans, auto-detect gutters / cut panels, and score printer-test swatches. |
+| [**`pencil_cleaner/`**](pencil_cleaner/) | **Terminal UI (TUI)**, Python CLI & Gradio Web UI | **GPU Directional Inker (A100 Tensor-accelerated)**, mono laser ghost prepper, `potrace` vector tracing, gutter panel cutter, printer-test scorer, and terminal scan visualizer. |
 
 ---
 
