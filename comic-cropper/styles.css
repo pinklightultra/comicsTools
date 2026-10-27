@@ -43,7 +43,7 @@ html, body {
   height: 100%;
 }
 
-/* —— Toolbar —— */
+/* --- Toolbar --- */
 .toolbar {
   display: flex;
   align-items: center;
@@ -141,7 +141,7 @@ html, body {
   padding: 2px 8px;
 }
 
-/* —— Buttons —— */
+/* --- Buttons --- */
 .btn {
   appearance: none;
   border: 1px solid var(--border);
@@ -212,7 +212,7 @@ label.btn {
   accent-color: var(--accent);
 }
 
-/* —— Layout —— */
+/* --- Layout --- */
 .main {
   display: grid;
   grid-template-columns: 220px 1fr 280px;
@@ -367,7 +367,7 @@ label.btn {
   box-shadow: 1px 1px 0 var(--coral);
 }
 
-/* —— Workspace / canvas —— */
+/* --- Workspace / canvas --- */
 .workspace {
   position: relative;
   min-width: 0;
@@ -505,7 +505,7 @@ label.btn {
   line-height: 1.5;
 }
 
-/* —— Inspector —— */
+/* --- Inspector --- */
 .preview-box {
   position: relative;
   background: #0c0c0e;
@@ -604,7 +604,7 @@ kbd {
   color: var(--cream);
 }
 
-/* —— Overlays / modal —— */
+/* --- Overlays / modal --- */
 .drop-overlay {
   position: fixed;
   inset: 0;
@@ -681,7 +681,7 @@ kbd {
   justify-content: flex-end;
 }
 
-/* —— Toasts —— */
+/* --- Toasts --- */
 .toast-stack {
   position: fixed;
   right: 16px;
@@ -778,7 +778,7 @@ kbd {
 }
 
 
-/* —— New toolbar controls —— */
+/* --- New toolbar controls --- */
 .group-label {
   font-size: 10px;
   text-transform: uppercase;

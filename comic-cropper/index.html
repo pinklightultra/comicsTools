@@ -46,7 +46,7 @@
         </label>
       </div>
 
-      <div class="toolbar-group view-mode-group" title="Display only — exports stay true to the scan">
+      <div class="toolbar-group view-mode-group" title="Display only: exports stay true to the scan">
         <span class="group-label">Pencil view</span>
         <select id="view-mode" class="toolbar-select" aria-label="Pencil view mode">
           <option value="off" selected>Off</option>
@@ -58,7 +58,7 @@
       <div class="toolbar-group rotate-group">
         <button type="button" class="btn" id="btn-rotate-ccw" title="Rotate page 90° counter-clockwise">⟲ 90°</button>
         <button type="button" class="btn" id="btn-rotate-cw" title="Rotate page 90° clockwise">⟳ 90°</button>
-        <label class="field-inline" title="Fine straighten — live preview, then Apply">
+        <label class="field-inline" title="Fine straighten: live preview, then Apply">
           <span>Straighten</span>
           <input type="range" id="straighten-angle" min="-15" max="15" step="0.1" value="0" />
           <span class="angle-readout" id="straighten-readout">0°</span>
@@ -117,7 +117,7 @@
               <p class="empty-kicker">Pencils in · ink later</p>
               <h2>Frame the tiny panels.<br />Blow them up. Go ink.</h2>
               <ol>
-                <li><strong>Import</strong> a penciled scan — the smaller the panels, the better this feels.</li>
+                <li><strong>Import</strong> a penciled scan (the smaller the panels, the better this feels).</li>
                 <li><strong>Drag</strong> a box around each panel like you’re marking boards.</li>
                 <li><strong>Export</strong> at 3× (default) PNG so inking isn’t a squint contest.</li>
                 <li><strong>Save</strong> a <code>.comiccrop</code> so layout-you can thank crop-you later.</li>
@@ -146,7 +146,7 @@
           <h2>Close-up</h2>
           <div class="preview-box" id="preview-box">
             <canvas id="preview-canvas"></canvas>
-            <p class="preview-empty" id="preview-empty">Pick a panel — close-up lives here.</p>
+            <p class="preview-empty" id="preview-empty">Pick a panel: close-up lives here.</p>
           </div>
         </div>
 
@@ -156,9 +156,9 @@
             <span>Scale</span>
             <select id="export-scale">
               <option value="1">1× (original)</option>
-              <option value="2">2× — cozy</option>
-              <option value="3" selected>3× — roomy</option>
-              <option value="4">4× — billboard</option>
+              <option value="2">2×: cozy</option>
+              <option value="3" selected>3×: roomy</option>
+              <option value="4">4×: billboard</option>
               <option value="custom">Custom %</option>
             </select>
           </label>
@@ -189,7 +189,7 @@
             <button type="button" class="btn" id="btn-contact-sheet" disabled title="All panels on one labeled PNG sheet">Contact sheet</button>
           </div>
           <p class="inspector-note">
-            Tip: default 3× + soft bleed keeps enlarged inks from clipping at the edge. Upscaling is browser canvas — sharp enough for pencils; re-export from the project anytime. Pencil view is display-only.
+            Tip: default 3× + soft bleed keeps enlarged inks from clipping at the edge. Upscaling is browser canvas (sharp enough for pencils; re-export from the project anytime). Pencil view is display-only.
           </p>
         </div>
 
@@ -213,7 +213,7 @@
     <div class="drop-overlay" id="drop-overlay" hidden>
       <div class="drop-card">
         <span class="drop-burst" aria-hidden="true">✦</span>
-        Drop scans, PDFs, or a <code>.comiccrop</code> — we’ll catch it.
+        Drop scans, PDFs, or a <code>.comiccrop</code>: we’ll catch it.
       </div>
     </div>
 
