@@ -6,7 +6,7 @@
 
 $$\text{Pencil Roughs} \longrightarrow \text{Panel Isolation / 3× Blowup} \longrightarrow \text{Laser Ghost Print} \longrightarrow \text{Physical Ink} \longrightarrow \text{Scan & Extraction} \longrightarrow \text{Layout}$$
 
-Standard digital art programs assume you either work 100% digitally or use non-photo blue pencils. If you print laser toner "ghosts" on Bristol paper to ink over with dip pens and brushes, toner is carbon-based—meaning you cannot simply drop a color channel. **traceJockey** handles panel isolation, ghost calibration, stroke-geometry ink separation, and vectorization out of the box.
+Standard digital art programs assume you either work 100% digitally or use non-photo blue pencils. If you print laser toner "ghosts" on Bristol paper to ink over with dip pens and brushes, toner is carbon-based (meaning you cannot simply drop a color channel). **traceJockey** handles panel isolation, ghost calibration, stroke-geometry ink separation, and vectorization out of the box.
 
 ---
 
@@ -75,6 +75,21 @@ pencil-cleaner-app
 Open **`http://127.0.0.1:7860`** in your browser.
 
 ---
+
+## Justinbot Terminology Glossary
+
+For cartoonists, illustrators, and print engineers exploring hybrid media pipelines:
+
+| Term | Domain / Cartooning Context | Definition in `comicsTools` |
+|---|---|---|
+| **Hybrid Pipeline** | Physical / Digital workflow | Composition loop moving between pencil layouts, digital panel cropping, physical ink on Bristol board, and vector cleanup. |
+| **Laser Ghost Print** | Physical underdrawing guide | Ultra-light, low-density halftone print of pencil layouts on paper, faint enough to guide physical inking without competing visually. |
+| **Non-Photo Blue** | Traditional photolithography | Cyan pencil pigment invisible to vintage orthochromatic graphic arts film, superseded in modern laser printing by calibrated grey ghosts. |
+| **Morphological Separation** | Mathematical morphology filtering | Computer vision operations (dilation, erosion, opening) that separate thin carbon laser toner specks from dense organic brush strokes. |
+| **Potrace Tracing** | Bitmap to vector conversion | Transform bitmap raster scans into resolution-independent Bezier spline curves for publication-ready SVG linework. |
+| **3x Panel Blowup** | Detail enlargement | Enlarging small pencil roughs by 300% to print across full Bristol boards, allowing cartoonists to ink tight physical details comfortably. |
+| **Bleed Margin** | Print production boundary | Artwork extending past the final trim line to ensure ink reaches the page edge without accidental white paper gaps. |
+| **Comic Cropper** | Zero-dependency canvas tool | In-browser crop and framing workstation allowing rapid bounding box export and multi-page contact sheet generation. |
 
 ## License & Attribution
 
