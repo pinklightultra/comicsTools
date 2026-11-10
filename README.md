@@ -2,6 +2,12 @@
 
 comicsTools is two programs for cartoonists who print a penciled page, ink it by hand, and scan it back: [comic-cropper](comic-cropper/README.md) frames the panels in the browser, and [pencil_cleaner](pencil_cleaner/README.md) lightens the pencil scan for that print or strips the leftover gray out of the inked scan.
 
+No generative AI. This tool doesn't draw, ink, letter, or generate anything. It handles the tedious parts — scanning cleanup, cropping panels, organizing and rearranging them — so you can spend your time on the actual art. It is not meant to replace cartoonists, or any part of making comics.
+
+The image work is thresholds, morphology, and deskew. Tesseract, if you install it, only reads lettering that is already on the scan. It does not write any.
+
+This project was built with AI coding assistance. Justin reviews it and maintains it.
+
 ## Download the app
 
 ![comicsTools after a scan is cropped and the panel order is swapped](docs/comics-tools.png)
