@@ -13,7 +13,7 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(REPO_ROOT / "pencil_cleaner"))
 
 from pencil_cleaner.mark_cleanup import MARK_D, MARK_INSET  # noqa: E402
-from pencil_cleaner.studio_project import Project, clamp_box  # noqa: E402
+from pencil_cleaner.studio_project import Panel, Project, SourcePage, clamp_box  # noqa: E402
 
 
 def _two_panel_page(path: Path) -> None:
@@ -176,6 +176,65 @@ class TestStudioProject(unittest.TestCase):
             with self.assertRaises(ValueError):
                 project.merge_panels(first.id, second.id)
             self.assertEqual(len(project.panels), len(ids))
+
+    def test_catalog_ids_follow_the_board(self):
+        project = Project()
+        project.sources.append(
+            SourcePage(id="page1", name="scan", image_name="page1.png", width=200, height=200)
+        )
+        first = Panel(id="a", source_id="page1", x0=0, y0=0, x1=40, y1=40, board_page=0, order=0)
+        second = Panel(id="b", source_id="page1", x0=50, y0=0, x1=90, y1=40, board_page=0, order=1)
+        project.panels = [first, second]
+        self.assertEqual(project.catalog_id(first), "p001-01")
+        self.assertEqual(project.catalog_id(second), "p001-02")
+        project.move_by("a", 1)
+        self.assertEqual(project.catalog_id(project.panel("a")), "p001-02")
+        self.assertEqual(project.catalog_id(project.panel("b")), "p001-01")
+        project.move_to_page("b", 2)
+        self.assertEqual(project.catalog_id(project.panel("b")), "p003-01")
+        self.assertEqual(project.catalog_record(project.panel("b"))["page"], 3)
+        self.assertEqual(project.catalog_record(project.panel("b"))["panel"], 1)
+
+    def test_catalog_sidecar_roundtrip_and_export(self):
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            scan = root / "page.png"
+            _two_panel_page(scan)
+            project = Project(name="Catalog")
+            project.import_files([scan])
+            panel = project.reading_order()[0]
+            project.set_meta(
+                panel.id,
+                tags=["character:ada", "location:dock", "pencilled"],
+                notes="rain on the window",
+                stage="pencil",
+                ocr_text="DOCK GATE",
+            )
+            saved = project.save(root / "proj")
+            sidecar = json.loads((saved / "catalog.json").read_text())
+            self.assertEqual(sidecar["panels"][0]["id"], project.catalog_id(project.reading_order()[0]))
+            self.assertEqual(sidecar["panels"][0]["tags"], ["character:ada", "location:dock", "pencilled"])
+            # The sidecar is what a reload keeps if project.json lost the text.
+            stored = json.loads((saved / "project.json").read_text())
+            for raw in stored["panels"]:
+                raw["tags"] = []
+                raw["ocr_text"] = ""
+                raw["notes"] = ""
+            (saved / "project.json").write_text(json.dumps(stored))
+            loaded = Project.load(saved)
+            restored = loaded.panel(panel.id)
+            self.assertEqual(restored.tags, ["character:ada", "location:dock", "pencilled"])
+            self.assertEqual(restored.notes, "rain on the window")
+            self.assertEqual(restored.ocr_text, "DOCK GATE")
+            self.assertEqual(restored.stage, "pencil")
+            exported = loaded.export_catalog(root / "out")
+            self.assertTrue(exported["json"].is_file())
+            csv_text = exported["csv"].read_text()
+            self.assertIn("id,page,panel,bbox", csv_text.splitlines()[0])
+            self.assertIn(loaded.catalog_id(restored), csv_text)
+            self.assertIn("character:ada|location:dock|pencilled", csv_text)
+            names = sorted(path.name for path in exported["images"])
+            self.assertEqual(names, [f"{loaded.catalog_id(p)}.png" for p in loaded.reading_order()])
 
     def test_missing_file_and_bad_version(self):
         project = Project()

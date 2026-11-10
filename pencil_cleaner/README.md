@@ -72,7 +72,7 @@ pip install "./pencil_cleaner[gui]"
 comics-tools
 ```
 
-`comics-tools` is the project window: import scans, deskew, panel boxes, a board you can reorder, and a US Letter ghost PDF. The command-line flags are unchanged. See the root README for the screenshot and the release builds.
+`comics-tools` is the project window: import scans, deskew, panel boxes, a board you can reorder, catalog ids (`p003-02`), tags, and a US Letter ghost PDF. Lettering uses Tesseract when it is installed. The command-line flags are unchanged. See the root README for the screenshot and the release builds.
 
 ## Terminal UI
 

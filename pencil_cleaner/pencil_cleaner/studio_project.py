@@ -6,9 +6,11 @@ on the right and bottom, the same convention as ``find_panel_boxes``.
 """
 from __future__ import annotations
 
+import csv
 import json
 import shutil
 from dataclasses import asdict, dataclass, field
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Iterable, Optional, Sequence, Union
 
@@ -24,6 +26,10 @@ from ._pageio import load_gray, pdf_to_gray_pages, save_pages_as_pdf
 
 PathLike = Union[str, Path]
 Box = tuple[int, int, int, int]
+
+
+def _now() -> str:
+    return datetime.now(timezone.utc).replace(microsecond=0).isoformat()
 
 LAYOUTS = ((2, 2), (2, 3), (3, 2), (3, 3))
 MIN_PANEL = 8
@@ -49,6 +55,12 @@ class Panel:
     y1: int
     board_page: int = 0
     order: int = 0
+    tags: list[str] = field(default_factory=list)
+    notes: str = ""
+    stage: str = "pencil"
+    ocr_text: str = ""
+    created_at: str = field(default_factory=lambda: _now())
+    updated_at: str = field(default_factory=lambda: _now())
 
     def box(self) -> Box:
         return (self.x0, self.y0, self.x1, self.y1)
@@ -97,6 +109,30 @@ class Project:
             if panel.id == panel_id:
                 return index
         raise KeyError(panel_id)
+
+    def catalog_id(self, panel: Panel) -> str:
+        """Page and panel numbers are 1-based. Page 3, panel 2 is ``p003-02``."""
+        return f"p{int(panel.board_page) + 1:03d}-{int(panel.order) + 1:02d}"
+
+    def catalog_record(self, panel: Panel) -> dict:
+        source = self.source(panel.source_id)
+        return {
+            "id": self.catalog_id(panel),
+            "stable_id": panel.id,
+            "page": int(panel.board_page) + 1,
+            "panel": int(panel.order) + 1,
+            "bbox": [panel.x0, panel.y0, panel.x1, panel.y1],
+            "source_file": source.image_name,
+            "tags": list(panel.tags),
+            "notes": panel.notes,
+            "stage": panel.stage,
+            "ocr_text": panel.ocr_text,
+            "created_at": panel.created_at,
+            "updated_at": panel.updated_at,
+        }
+
+    def catalog_records(self) -> list[dict]:
+        return [self.catalog_record(panel) for panel in self.reading_order()]
 
     def panels_on(self, board_page: int) -> list[Panel]:
         return [p for p in self.reading_order() if p.board_page == board_page]
@@ -155,6 +191,7 @@ class Project:
         panel.x0, panel.y0, panel.x1, panel.y1 = clamp_box(
             x0, y0, x1, y1, page.width, page.height
         )
+        panel.updated_at = _now()
         return panel
 
     def add_panel(self, source_id: str, x0: int, y0: int, x1: int, y1: int) -> Panel:
@@ -190,6 +227,10 @@ class Project:
             y1=src.y1,
             board_page=src.board_page,
             order=src.order + 1,
+            tags=list(src.tags),
+            notes=src.notes,
+            stage=src.stage,
+            ocr_text=src.ocr_text,
         )
         for panel in self.panels:
             if panel.board_page == src.board_page and panel.order > src.order:
@@ -352,6 +393,7 @@ class Project:
             "panels": [asdict(panel) for panel in self.panels],
         }
         (target / "project.json").write_text(json.dumps(payload, indent=2) + "\n")
+        self.write_catalog(target / "catalog.json")
         return target
 
     @classmethod
@@ -376,7 +418,122 @@ class Project:
             project.sources.append(SourcePage(**raw))
         for raw in data.get("panels") or []:
             project.panels.append(Panel(**raw))
+        catalog_path = folder / "catalog.json"
+        if catalog_path.is_file():
+            project.apply_catalog(json.loads(catalog_path.read_text()))
         return project
+
+    def set_meta(
+        self,
+        panel_id: str,
+        *,
+        tags: Optional[Sequence[str]] = None,
+        notes: Optional[str] = None,
+        stage: Optional[str] = None,
+        ocr_text: Optional[str] = None,
+    ) -> Panel:
+        panel = self.panel(panel_id)
+        if tags is not None:
+            panel.tags = _clean_tags(tags)
+        if notes is not None:
+            panel.notes = str(notes)
+        if stage is not None:
+            if stage not in ("pencil", "ink"):
+                raise ValueError("Stage is pencil or ink.")
+            panel.stage = stage
+        if ocr_text is not None:
+            panel.ocr_text = str(ocr_text)
+        panel.updated_at = _now()
+        return panel
+
+    def read_lettering(self, panel_id: str):
+        from .ocr_text import recognize
+
+        panel = self.panel(panel_id)
+        gray = load_gray(self.image_path(panel.source_id))
+        crop = np.asarray(gray[panel.y0 : panel.y1, panel.x0 : panel.x1])
+        if crop.size == 0:
+            from .ocr_text import OcrResult
+
+            return OcrResult(text="", available=True, message="The panel crop is empty.")
+        image = Image.fromarray(np.clip(crop, 0, 255).astype(np.uint8), "L")
+        result = recognize(image)
+        if result.available:
+            panel.ocr_text = result.text
+            panel.updated_at = _now()
+        return result
+
+    def write_catalog(self, dest: PathLike) -> Path:
+        dest = Path(dest)
+        dest.parent.mkdir(parents=True, exist_ok=True)
+        payload = {"version": 1, "panels": self.catalog_records()}
+        dest.write_text(json.dumps(payload, indent=2) + "\n")
+        return dest
+
+    def apply_catalog(self, payload: dict) -> None:
+        """Copy metadata from a catalog sidecar onto the matching panels."""
+        by_stable = {panel.id: panel for panel in self.panels}
+        by_catalog = {self.catalog_id(panel): panel for panel in self.panels}
+        for record in payload.get("panels") or []:
+            panel = by_stable.get(record.get("stable_id")) or by_catalog.get(record.get("id"))
+            if panel is None:
+                continue
+            if "tags" in record:
+                panel.tags = _clean_tags(record.get("tags") or [])
+            if "notes" in record:
+                panel.notes = str(record.get("notes") or "")
+            if record.get("stage") in ("pencil", "ink"):
+                panel.stage = record["stage"]
+            if "ocr_text" in record:
+                panel.ocr_text = str(record.get("ocr_text") or "")
+            if record.get("created_at"):
+                panel.created_at = str(record["created_at"])
+            if record.get("updated_at"):
+                panel.updated_at = str(record["updated_at"])
+
+    def export_catalog(self, dest: PathLike) -> dict:
+        """Write catalog.json, panels.csv, and one PNG per panel id."""
+        dest = Path(dest)
+        dest.mkdir(parents=True, exist_ok=True)
+        json_path = self.write_catalog(dest / "catalog.json")
+        csv_path = dest / "panels.csv"
+        fields = [
+            "id",
+            "page",
+            "panel",
+            "bbox",
+            "source_file",
+            "tags",
+            "notes",
+            "stage",
+            "ocr_text",
+            "created_at",
+            "updated_at",
+        ]
+        records = self.catalog_records()
+        with csv_path.open("w", newline="") as handle:
+            writer = csv.DictWriter(handle, fieldnames=fields, extrasaction="ignore")
+            writer.writeheader()
+            for record in records:
+                row = dict(record)
+                row["bbox"] = ",".join(str(v) for v in record["bbox"])
+                row["tags"] = "|".join(record["tags"])
+                writer.writerow(row)
+        image_dir = dest / "panels"
+        image_dir.mkdir(exist_ok=True)
+        cache: dict[str, np.ndarray] = {}
+        written = []
+        for panel in self.reading_order():
+            if panel.source_id not in cache:
+                cache[panel.source_id] = load_gray(self.image_path(panel.source_id))
+            gray = cache[panel.source_id]
+            crop = np.clip(gray[panel.y0 : panel.y1, panel.x0 : panel.x1], 0, 255).astype(np.uint8)
+            if crop.size == 0:
+                crop = np.full((8, 8), 255, dtype=np.uint8)
+            path = image_dir / f"{self.catalog_id(panel)}.png"
+            Image.fromarray(crop, "L").save(path)
+            written.append(path)
+        return {"json": json_path, "csv": csv_path, "images": written}
 
     def _export_panels(self, panel_ids, board_pages) -> list[Panel]:
         ordered = self.reading_order()
@@ -542,6 +699,18 @@ def clamp_box(x0: int, y0: int, x1: int, y1: int, width: int, height: int) -> Bo
     x1 = max(x0 + MIN_PANEL, min(x1, width))
     y1 = max(y0 + MIN_PANEL, min(y1, height))
     return x0, y0, x1, y1
+
+
+def _clean_tags(tags: Sequence[str]) -> list[str]:
+    cleaned = []
+    seen = set()
+    for raw in tags:
+        text = str(raw).strip()
+        if not text or text in seen:
+            continue
+        seen.add(text)
+        cleaned.append(text)
+    return cleaned
 
 
 def _opacity_value(name: str) -> float:

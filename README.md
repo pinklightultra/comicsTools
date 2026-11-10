@@ -14,9 +14,22 @@ One command from a checkout installs the window and the libraries it uses:
 pip install "./pencil_cleaner[gui]"
 ```
 
-Start it with `comics-tools`, or `python -m pencil_cleaner gui`. Drop scans or a PDF on the window, or use Import. The window deskews each page, finds the panel boxes, and puts them on a board. Drag the thumbnails to change reading order or move a panel onto another page. Bleed is in source pixels (default 12). Export ghost PDF writes US Letter pages at the light, medium, or dark preset, with corner registration marks and a printer-test page.
+Start it with `comics-tools`, or `python -m pencil_cleaner gui`. Drop scans or a PDF on the window, or use Import. The window deskews each page, finds the panel boxes, and puts them on a board. Drag the thumbnails to change reading order or move a panel onto another page. Each panel’s id follows that order: page 3, panel 2 is `p003-02`, and the id changes when the panel moves. Bleed is in source pixels (default 12). Export ghost PDF writes US Letter pages at the light, medium, or dark preset, with corner registration marks and a printer-test page.
 
-A project is a folder (`project.json` and `sources/`). The scans stay in that folder.
+The page list on the right groups those ids. Tags, a pencil/ink stage, notes, and lettering are editable. Filter by tag, or search the notes and the lettering. Export catalog writes `catalog.json`, `panels.csv`, and one PNG per id (`panels/p001-01.png`). Saving the project also writes `catalog.json` next to `project.json`. The scans stay in that folder.
+
+Lettering is read locally with Tesseract, and only when it is installed. [docs/ocr-sample.png](docs/ocr-sample.png) is a label drawn for this check, not a page from a comic. Tesseract 5.3.4 returned:
+
+```
+DOCK GATE
+```
+
+```bash
+sudo apt install tesseract-ocr   # or the Tesseract package for your system
+pip install pytesseract
+```
+
+If either one is missing, Read lettering leaves the text as it was and the status line says what to install.
 
 The command-line tools below still work. [comic-cropper](comic-cropper/README.md) is still the browser page.
 

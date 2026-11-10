@@ -12,14 +12,18 @@ from PySide6.QtWidgets import (
     QFileDialog,
     QHBoxLayout,
     QLabel,
+    QLineEdit,
     QListWidget,
     QListWidgetItem,
     QMainWindow,
+    QPlainTextEdit,
     QProgressBar,
     QPushButton,
     QScrollArea,
     QSpinBox,
     QSplitter,
+    QTreeWidget,
+    QTreeWidgetItem,
     QVBoxLayout,
     QWidget,
 )
@@ -105,9 +109,11 @@ class PageCanvas(QWidget):
             painter.drawRect(screen)
             number = self._numbers.get(panel.id)
             if number:
-                painter.fillRect(screen.x(), screen.y(), 22, 18, QColor("#2b6cb0"))
+                text = str(number)
+                width = painter.fontMetrics().horizontalAdvance(text) + 8
+                painter.fillRect(screen.x(), screen.y(), width, 16, QColor("#2b6cb0"))
                 painter.setPen(QColor("white"))
-                painter.drawText(screen.x() + 4, screen.y() + 14, str(number))
+                painter.drawText(screen.x() + 4, screen.y() + 12, text)
             if panel.id == self.selected_id:
                 for handle in self._handles(screen).values():
                     painter.fillRect(handle, QColor("white"))
@@ -334,10 +340,12 @@ class StudioWindow(QMainWindow):
         self.open_btn = self._button("Open", self._open)
         self.save_btn = self._button("Save", self._save)
         self.export_btn = self._button("Export ghost PDF", self._export)
+        self.catalog_btn = self._button("Export catalog", self._export_catalog)
         controls.addWidget(self.import_btn)
         controls.addWidget(self.open_btn)
         controls.addWidget(self.save_btn)
         controls.addWidget(self.export_btn)
+        controls.addWidget(self.catalog_btn)
         controls.addWidget(QLabel("Opacity"))
         self.opacity = QComboBox()
         self.opacity.addItems(["light", "medium", "dark"])
@@ -405,7 +413,46 @@ class StudioWindow(QMainWindow):
         right = QWidget()
         right_layout = QVBoxLayout(right)
         right_layout.setContentsMargins(0, 0, 0, 0)
+        filter_row = QHBoxLayout()
+        self.tag_filter = QLineEdit()
+        self.tag_filter.setPlaceholderText("Filter by tag")
+        self.tag_filter.textChanged.connect(self._refresh_catalog)
+        self.search = QLineEdit()
+        self.search.setPlaceholderText("Search lettering and notes")
+        self.search.textChanged.connect(self._refresh_catalog)
+        filter_row.addWidget(self.tag_filter)
+        filter_row.addWidget(self.search)
+        right_layout.addLayout(filter_row)
+        self.catalog_tree = QTreeWidget()
+        self.catalog_tree.setHeaderHidden(True)
+        self.catalog_tree.setMaximumHeight(160)
+        self.catalog_tree.itemSelectionChanged.connect(self._catalog_selected)
+        right_layout.addWidget(self.catalog_tree)
+        meta = QHBoxLayout()
+        self.tags_edit = QLineEdit()
+        self.tags_edit.setPlaceholderText("Tags, comma separated")
+        self.tags_edit.editingFinished.connect(self._save_meta)
+        self.stage_box = QComboBox()
+        self.stage_box.addItems(["pencil", "ink"])
+        self.stage_box.currentTextChanged.connect(self._save_meta)
+        meta.addWidget(self.tags_edit, 1)
+        meta.addWidget(self.stage_box)
+        right_layout.addLayout(meta)
+        self.notes_edit = QPlainTextEdit()
+        self.notes_edit.setPlaceholderText("Notes")
+        self.notes_edit.setFixedHeight(36)
+        self.notes_edit.textChanged.connect(self._save_meta)
+        right_layout.addWidget(self.notes_edit)
+        ocr_row = QHBoxLayout()
+        self.ocr_edit = QPlainTextEdit()
+        self.ocr_edit.setPlaceholderText("Lettering. Read it, or type it.")
+        self.ocr_edit.setFixedHeight(48)
+        self.ocr_edit.textChanged.connect(self._save_meta)
+        ocr_row.addWidget(self.ocr_edit, 1)
+        ocr_row.addWidget(self._button("Read lettering", self._read_lettering))
+        right_layout.addLayout(ocr_row)
         right_layout.addWidget(QLabel("Panel board. Drag to reorder or move between pages."))
+        self._loading_meta = False
         self.board_host = QWidget()
         self.board_layout = QVBoxLayout(self.board_host)
         self.board_layout.setContentsMargins(0, 0, 0, 0)
@@ -526,19 +573,22 @@ class StudioWindow(QMainWindow):
         self.canvas.selected_id = panel.id
         self._show_source(self._source_id)
         self._refresh_board()
-        self.status.setText(f"Added panel {self.project.reading_number(panel.id)}.")
+        self.status.setText(f"Added {self.project.catalog_id(panel)}.")
+        self._load_meta(panel.id)
 
     def _panel_edited(self, panel_id) -> None:
         panel = self.project.panel(panel_id)
         self.project.set_rect(panel_id, panel.x0, panel.y0, panel.x1, panel.y1)
         self._refresh_board()
         self.status.setText(
-            f"Panel {self.project.reading_number(panel_id)} is "
+            f"{self.project.catalog_id(panel)} is "
             f"{panel.width()}×{panel.height()} source pixels."
         )
 
     def _panel_picked(self, panel_id) -> None:
         self._select_board_item(panel_id)
+        self._load_meta(panel_id)
+        self._refresh_catalog()
 
     def _split(self) -> None:
         pid = self.canvas.selected_id
@@ -579,7 +629,8 @@ class StudioWindow(QMainWindow):
         self.canvas.selected_id = copy.id
         self._show_source(self._source_id)
         self._refresh_board()
-        self.status.setText(f"Duplicated panel {self.project.reading_number(copy.id)}.")
+        self.status.setText(f"Duplicated as {self.project.catalog_id(copy)}.")
+        self._load_meta(copy.id)
 
     def _delete(self) -> None:
         pid = self.canvas.selected_id
@@ -602,7 +653,8 @@ class StudioWindow(QMainWindow):
         self._show_source(self._source_id)
         self._refresh_board()
         self._select_board_item(pid)
-        self.status.setText(f"Panel {self.project.reading_number(pid)} moved.")
+        self.status.setText(f"Now {self.project.catalog_id(self.project.panel(pid))}.")
+        self._load_meta(pid)
 
     def _shift_page(self, steps: int) -> None:
         pid = self.canvas.selected_id or self._one_board_selection()
@@ -614,7 +666,8 @@ class StudioWindow(QMainWindow):
         self._show_source(self._source_id)
         self._refresh_board()
         self._select_board_item(pid)
-        self.status.setText(f"Panel {self.project.reading_number(pid)} is on page {self.project.panel(pid).board_page + 1}.")
+        self.status.setText(f"Now {self.project.catalog_id(self.project.panel(pid))}.")
+        self._load_meta(pid)
 
     def _set_opacity(self, name: str) -> None:
         self.project.opacity = name
@@ -677,7 +730,7 @@ class StudioWindow(QMainWindow):
             return
         page = self.project.source(source_id)
         panels = [p for p in self.project.panels if p.source_id == source_id]
-        numbers = {p.id: self.project.reading_number(p.id) for p in panels}
+        numbers = {p.id: self.project.catalog_id(p) for p in panels}
         self.canvas.set_page(
             self.project.image_path(source_id),
             panels,
@@ -703,7 +756,7 @@ class StudioWindow(QMainWindow):
             listing.changed.connect(self._queue_sync)
             listing.itemSelectionChanged.connect(lambda widget=listing: self._board_selection(widget))
             for panel in self.project.panels_on(page_index):
-                item = QListWidgetItem(str(self.project.reading_number(panel.id)))
+                item = QListWidgetItem(self.project.catalog_id(panel))
                 item.setData(Qt.ItemDataRole.UserRole, panel.id)
                 item.setIcon(QIcon(self._icon(panel)))
                 listing.addItem(item)
@@ -712,6 +765,7 @@ class StudioWindow(QMainWindow):
             self._boards.append((page_index, listing))
         self.board_layout.addStretch(1)
         self._syncing = False
+        self._refresh_catalog()
 
     def _queue_sync(self) -> None:
         if self._syncing:
@@ -743,7 +797,7 @@ class StudioWindow(QMainWindow):
             for row in range(widget.count()):
                 pid = widget.item(row).data(Qt.ItemDataRole.UserRole)
                 if pid:
-                    widget.item(row).setText(str(self.project.reading_number(pid)))
+                    widget.item(row).setText(self.project.catalog_id(self.project.panel(pid)))
 
     def _board_selection(self, widget: BoardList) -> None:
         if self._syncing:
@@ -764,6 +818,7 @@ class StudioWindow(QMainWindow):
         self._show_source(panel.source_id)
         self.canvas.selected_id = pid
         self.canvas.update()
+        self._load_meta(pid)
 
     def _select_board_item(self, panel_id: str) -> None:
         self._syncing = True
@@ -811,6 +866,128 @@ class StudioWindow(QMainWindow):
             cache[source_id] = np.clip(load_gray(self.project.image_path(source_id)), 0, 255).astype(np.uint8)
             self._arrays = cache
         return cache[source_id]
+
+    def _matches(self, panel) -> bool:
+        tag_query = self.tag_filter.text().strip().lower()
+        text_query = self.search.text().strip().lower()
+        if tag_query and not any(tag_query in tag.lower() for tag in panel.tags):
+            return False
+        if text_query and text_query not in f"{panel.ocr_text}\n{panel.notes}".lower():
+            return False
+        return True
+
+    def _refresh_catalog(self) -> None:
+        if not hasattr(self, "catalog_tree"):
+            return
+        self.catalog_tree.blockSignals(True)
+        self.catalog_tree.clear()
+        grouped: dict[int, list] = {}
+        for panel in self.project.reading_order():
+            if self._matches(panel):
+                grouped.setdefault(panel.board_page, []).append(panel)
+        selected = self.canvas.selected_id
+        for page_index in sorted(grouped):
+            parent = QTreeWidgetItem([f"Page {page_index + 1}"])
+            parent.setData(0, Qt.ItemDataRole.UserRole, None)
+            for panel in grouped[page_index]:
+                label = self.project.catalog_id(panel)
+                if panel.tags:
+                    label += "  " + ", ".join(panel.tags)
+                child = QTreeWidgetItem([label])
+                child.setData(0, Qt.ItemDataRole.UserRole, panel.id)
+                parent.addChild(child)
+                if panel.id == selected:
+                    child.setSelected(True)
+            self.catalog_tree.addTopLevelItem(parent)
+            parent.setExpanded(True)
+        self.catalog_tree.blockSignals(False)
+
+    def _catalog_selected(self) -> None:
+        items = self.catalog_tree.selectedItems()
+        if not items:
+            return
+        panel_id = items[0].data(0, Qt.ItemDataRole.UserRole)
+        if not panel_id:
+            return
+        panel = self.project.panel(panel_id)
+        self.canvas.selected_id = panel_id
+        if panel.source_id != self._source_id:
+            self.source_list.blockSignals(True)
+            for row in range(self.source_list.count()):
+                if self.source_list.item(row).data(Qt.ItemDataRole.UserRole) == panel.source_id:
+                    self.source_list.setCurrentRow(row)
+                    break
+            self.source_list.blockSignals(False)
+            self._show_source(panel.source_id)
+        else:
+            self.canvas.update()
+        self.canvas.selected_id = panel_id
+        self._select_board_item(panel_id)
+        self._load_meta(panel_id)
+
+    def _load_meta(self, panel_id: str | None) -> None:
+        self._loading_meta = True
+        try:
+            if not panel_id:
+                self.tags_edit.clear()
+                self.notes_edit.clear()
+                self.ocr_edit.clear()
+                self.stage_box.setCurrentText("pencil")
+                return
+            panel = self.project.panel(panel_id)
+            self.tags_edit.setText(", ".join(panel.tags))
+            self.stage_box.setCurrentText(panel.stage if panel.stage in ("pencil", "ink") else "pencil")
+            self.notes_edit.setPlainText(panel.notes)
+            self.ocr_edit.setPlainText(panel.ocr_text)
+        finally:
+            self._loading_meta = False
+
+    def _save_meta(self) -> None:
+        if self._loading_meta:
+            return
+        panel_id = self.canvas.selected_id
+        if not panel_id:
+            return
+        tags = [part.strip() for part in self.tags_edit.text().split(",")]
+        self.project.set_meta(
+            panel_id,
+            tags=tags,
+            notes=self.notes_edit.toPlainText(),
+            stage=self.stage_box.currentText(),
+            ocr_text=self.ocr_edit.toPlainText(),
+        )
+        if self.sender() in (self.tags_edit, self.stage_box):
+            self._refresh_catalog()
+
+    def _read_lettering(self) -> None:
+        panel_id = self.canvas.selected_id
+        if not panel_id:
+            self.status.setText("Select a panel to read.")
+            return
+        result = self.project.read_lettering(panel_id)
+        self._load_meta(panel_id)
+        if not result.available:
+            self.status.setText(result.message)
+        elif result.text:
+            self.status.setText(f"Read lettering on {self.project.catalog_id(self.project.panel(panel_id))}.")
+        else:
+            self.status.setText("Tesseract read this panel and returned no text.")
+
+    def _export_catalog(self) -> None:
+        if not self.project.panels:
+            self.status.setText("There are no panels to export.")
+            return
+        folder = QFileDialog.getExistingDirectory(self, "Catalog folder")
+        if not folder:
+            return
+        try:
+            written = self.project.export_catalog(folder)
+        except Exception as exc:
+            self.status.setText(f"{type(exc).__name__}: {exc}")
+            return
+        self.status.setText(
+            f"Wrote {written['json'].name}, {written['csv'].name}, and {len(written['images'])} panel image(s)."
+        )
 
     def _run(self, fn, done, label: str) -> None:
         if self._thread is not None and self._thread.isRunning():
