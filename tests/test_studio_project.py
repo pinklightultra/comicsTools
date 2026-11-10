@@ -61,7 +61,9 @@ class TestStudioProject(unittest.TestCase):
             self.assertEqual(len(loaded.panels), 2)
             self.assertEqual(loaded.panels[0].box(), project.panels[0].box())
             self.assertTrue((saved / "project.json").is_file())
-            self.assertEqual(json.loads((saved / "project.json").read_text())["version"], 1)
+            self.assertEqual(json.loads((saved / "project.json").read_text())["version"], 2)
+            self.assertEqual(scan.read_bytes(), project.image_path(page.id).read_bytes())
+            self.assertEqual(len(loaded.placements), 2)
 
     def test_edit_split_merge_duplicate_and_order(self):
         with tempfile.TemporaryDirectory() as td:
@@ -70,26 +72,35 @@ class TestStudioProject(unittest.TestCase):
             _two_panel_page(scan)
             project = Project()
             project.import_files([scan])
-            first = project.reading_order()[0]
+            first = project.panel(project.reading_order()[0].panel_id)
+            before = len(project.panels)
             project.set_rect(first.id, first.x0, first.y0, first.x0 + 80, first.y0 + 80)
+            self.assertEqual(project.panel(first.id).width(), 80)
+            project.undo()
+            self.assertNotEqual(project.panel(first.id).width(), 80)
+            project.redo()
             self.assertEqual(project.panel(first.id).width(), 80)
             left, right = project.split_panel(first.id)
             self.assertLess(left.x1, right.x0 + 1)
             self.assertEqual(left.x1, right.x0)
             merged = project.merge_panels(left.id, right.id)
             self.assertGreaterEqual(merged.width(), 80)
-            copy = project.duplicate_panel(merged.id)
-            self.assertEqual(copy.box(), merged.box())
-            self.assertNotEqual(copy.id, merged.id)
-            before = [p.id for p in project.reading_order()]
-            project.move_by(before[0], 1)
-            after = [p.id for p in project.reading_order()]
-            self.assertEqual(after[0], before[1])
-            self.assertEqual(after[1], before[0])
-            project.move_to_page(after[0], 3)
-            self.assertEqual(project.panel(after[0]).board_page, 3)
-            project.delete_panel(copy.id)
-            self.assertNotIn(copy.id, {p.id for p in project.panels})
+            uses_before = len(project.placements)
+            again = project.duplicate_panel(merged.id)
+            self.assertEqual(again.panel_id, merged.id)
+            self.assertEqual(len(project.panels), before)
+            self.assertEqual(len(project.placements), uses_before + 1)
+            order_before = [p.id for p in project.reading_order()]
+            project.move_by(order_before[0], 1)
+            order_after = [p.id for p in project.reading_order()]
+            self.assertEqual(order_after[0], order_before[1])
+            self.assertEqual(order_after[1], order_before[0])
+            project.move_to_page(order_after[0], 3)
+            self.assertEqual(project.placement(order_after[0]).board_page, 3)
+            removed = order_after[0]
+            project.remove_placement(removed)
+            self.assertNotIn(removed, {p.id for p in project.placements})
+            self.assertIn(merged.id, {p.id for p in project.panels})
 
     def test_pack_grid_and_drag_order(self):
         with tempfile.TemporaryDirectory() as td:
@@ -103,14 +114,14 @@ class TestStudioProject(unittest.TestCase):
             while len(project.panels) < 5:
                 project.add_panel(source, 30, 30, 80, 90)
             project.pack_grid()
-            pages = {p.board_page for p in project.panels}
+            pages = {p.board_page for p in project.placements}
             self.assertEqual(pages, {0, 1})
-            self.assertEqual(len(project.panels_on(0)), 4)
+            self.assertEqual(len(project.placements_on(0)), 4)
             ordered = project.reading_order()
             pairs = [(p.id, 0 if i < 3 else 1) for i, p in enumerate(ordered)]
             project.set_reading_order(pairs)
-            self.assertEqual(len(project.panels_on(0)), 3)
-            self.assertEqual(project.reading_number(ordered[0].id), 1)
+            self.assertEqual(len(project.placements_on(0)), 3)
+            self.assertEqual(project.catalog_id(project.placement(ordered[0].id)), "p001-01")
             with self.assertRaises(ValueError):
                 project.set_reading_order(pairs[:-1])
 
@@ -178,22 +189,29 @@ class TestStudioProject(unittest.TestCase):
             self.assertEqual(len(project.panels), len(ids))
 
     def test_catalog_ids_follow_the_board(self):
+        from pencil_cleaner.studio_project import Placement
+
         project = Project()
         project.sources.append(
-            SourcePage(id="page1", name="scan", image_name="page1.png", width=200, height=200)
+            SourcePage(id="page1", name="scan", image_name="page1.png", width=200, height=200, view_width=200, view_height=200)
         )
-        first = Panel(id="a", source_id="page1", x0=0, y0=0, x1=40, y1=40, board_page=0, order=0)
-        second = Panel(id="b", source_id="page1", x0=50, y0=0, x1=90, y1=40, board_page=0, order=1)
+        first = Panel(id="a", source_id="page1", x0=0, y0=0, x1=40, y1=40)
+        second = Panel(id="b", source_id="page1", x0=50, y0=0, x1=90, y1=40)
         project.panels = [first, second]
-        self.assertEqual(project.catalog_id(first), "p001-01")
-        self.assertEqual(project.catalog_id(second), "p001-02")
-        project.move_by("a", 1)
-        self.assertEqual(project.catalog_id(project.panel("a")), "p001-02")
-        self.assertEqual(project.catalog_id(project.panel("b")), "p001-01")
-        project.move_to_page("b", 2)
-        self.assertEqual(project.catalog_id(project.panel("b")), "p003-01")
-        self.assertEqual(project.catalog_record(project.panel("b"))["page"], 3)
-        self.assertEqual(project.catalog_record(project.panel("b"))["panel"], 1)
+        use_a = Placement(id="useA", panel_id="a", board_page=0, order=0)
+        use_b = Placement(id="useB", panel_id="b", board_page=0, order=1)
+        project.placements = [use_a, use_b]
+        self.assertEqual(project.catalog_id(use_a), "p001-01")
+        self.assertEqual(project.catalog_id(use_b), "p001-02")
+        project.move_by("useA", 1)
+        self.assertEqual(project.catalog_id(project.placement("useA")), "p001-02")
+        self.assertEqual(project.catalog_id(project.placement("useB")), "p001-01")
+        project.move_to_page("useB", 2)
+        self.assertEqual(project.catalog_id(project.placement("useB")), "p003-01")
+        record = project.catalog_record(project.placement("useB"))
+        self.assertEqual(record["page"], 3)
+        self.assertEqual(record["panel"], 1)
+        self.assertEqual(record["stable_id"], "b")
 
     def test_catalog_sidecar_roundtrip_and_export(self):
         with tempfile.TemporaryDirectory() as td:
@@ -202,7 +220,7 @@ class TestStudioProject(unittest.TestCase):
             _two_panel_page(scan)
             project = Project(name="Catalog")
             project.import_files([scan])
-            panel = project.reading_order()[0]
+            panel = project.panel(project.reading_order()[0].panel_id)
             project.set_meta(
                 panel.id,
                 tags=["character:ada", "location:dock", "pencilled"],
@@ -213,6 +231,7 @@ class TestStudioProject(unittest.TestCase):
             saved = project.save(root / "proj")
             sidecar = json.loads((saved / "catalog.json").read_text())
             self.assertEqual(sidecar["panels"][0]["id"], project.catalog_id(project.reading_order()[0]))
+            self.assertEqual(sidecar["panels"][0]["stable_id"], panel.id)
             self.assertEqual(sidecar["panels"][0]["tags"], ["character:ada", "location:dock", "pencilled"])
             # The sidecar is what a reload keeps if project.json lost the text.
             stored = json.loads((saved / "project.json").read_text())
@@ -231,10 +250,35 @@ class TestStudioProject(unittest.TestCase):
             self.assertTrue(exported["json"].is_file())
             csv_text = exported["csv"].read_text()
             self.assertIn("id,page,panel,bbox", csv_text.splitlines()[0])
-            self.assertIn(loaded.catalog_id(restored), csv_text)
+            self.assertIn(loaded.catalog_id(loaded.placements_of(restored.id)[0]), csv_text)
             self.assertIn("character:ada|location:dock|pencilled", csv_text)
             names = sorted(path.name for path in exported["images"])
             self.assertEqual(names, [f"{loaded.catalog_id(p)}.png" for p in loaded.reading_order()])
+
+    def test_layout_reuses_a_clip_and_ink_is_another_take(self):
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            pencil = root / "pencil.png"
+            ink = root / "ink.png"
+            _two_panel_page(pencil)
+            _two_panel_page(ink)
+            project = Project()
+            project.import_files([pencil])
+            clip = project.panels[0]
+            uses = len(project.placements)
+            project.place(clip.id, 1)
+            self.assertEqual(len(project.panels), 2)
+            self.assertEqual(len(project.placements), uses + 1)
+            project.set_rect(clip.id, 10, 10, 90, 90)
+            self.assertEqual(project.panel(clip.id).box(), (10, 10, 90, 90))
+            placement = project.placements_of(clip.id)[0]
+            project.remove_placement(placement.id)
+            self.assertIn(clip.id, {p.id for p in project.panels})
+            self.assertEqual(len(project.placements_of(clip.id)), 1)
+            ink_id = project.attach_ink(ink, project.sources[0].id)
+            project.set_meta(clip.id, stage="ink")
+            self.assertEqual(project.render_source(project.panel(clip.id)).id, ink_id)
+            self.assertEqual(pencil.read_bytes(), project.image_path(project.sources[0].id).read_bytes())
 
     def test_missing_file_and_bad_version(self):
         project = Project()

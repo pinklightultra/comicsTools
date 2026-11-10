@@ -14,9 +14,17 @@ One command from a checkout installs the window and the libraries it uses:
 pip install "./pencil_cleaner[gui]"
 ```
 
-Start it with `comics-tools`, or `python -m pencil_cleaner gui`. Drop scans or a PDF on the window, or use Import. The window deskews each page, finds the panel boxes, and puts them on a board. Drag the thumbnails to change reading order or move a panel onto another page. Each panel’s id follows that order: page 3, panel 2 is `p003-02`, and the id changes when the panel moves. Bleed is in source pixels (default 12). Export ghost PDF writes US Letter pages at the light, medium, or dark preset, with corner registration marks and a printer-test page.
+Start it with `comics-tools`, or `python -m pencil_cleaner gui`.
 
-The page list on the right groups those ids. Tags, a pencil/ink stage, notes, and lettering are editable. Filter by tag, or search the notes and the lettering. Export catalog writes `catalog.json`, `panels.csv`, and one PNG per id (`panels/p001-01.png`). Saving the project also writes `catalog.json` next to `project.json`. The scans stay in that folder.
+The window is a clip bin for comic panels. Import copies a scan into the project and does not modify that file, or the file you dropped. A panel is a reference: the source file, a crop rectangle, the deskew angle, and a cleanup setting. Pixels are drawn when the page is shown or exported. They are not written back into the scan.
+
+The library lists every clip, with a thumbnail, tags, notes, and lettering. Filter by tag, or search the notes and the lettering. Drag a clip onto a page. The same clip can be on more than one page. Rearranging a page only changes the layout. Remove from page leaves the clip in the library. Editing the crop updates every place that clip is used. Undo and Redo cover those layout and crop edits.
+
+A layout number follows the page. Page 3, panel 2 is `p003-02`, and the number is assigned again when the layout changes. The clip’s own id does not change.
+
+An ink scan can be linked as another take of the same page. The stage control flips a clip between pencil and ink. Export ghost PDF renders the pencil crops as a US Letter ghost, with corner marks and a printer-test page. Export page PNG renders the current layout. Neither one writes the scan.
+
+Tags, notes, and lettering are stored on the clip. Export catalog writes `catalog.json`, `panels.csv`, and one PNG per layout id (`panels/p001-01.png`). Saving the project also writes `catalog.json` next to `project.json`.
 
 Lettering is read locally with Tesseract, and only when it is installed. [docs/ocr-sample.png](docs/ocr-sample.png) is a label drawn for this check, not a page from a comic. Tesseract 5.3.4 returned:
 

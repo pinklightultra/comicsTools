@@ -4,8 +4,8 @@ from __future__ import annotations
 from pathlib import Path
 
 import numpy as np
-from PySide6.QtCore import QSize, QThread, Qt, QTimer, Signal
-from PySide6.QtGui import QColor, QIcon, QImage, QPainter, QPen, QPixmap
+from PySide6.QtCore import QMimeData, QSize, QThread, Qt, QTimer, Signal
+from PySide6.QtGui import QColor, QDrag, QIcon, QImage, QPainter, QPen, QPixmap
 from PySide6.QtWidgets import (
     QAbstractItemView,
     QComboBox,
@@ -33,6 +33,12 @@ from .studio_project import LAYOUTS, Project
 SCAN_FILTER = "Scans (*.png *.jpg *.jpeg *.tif *.tiff *.webp *.bmp *.pdf);;All files (*)"
 
 
+def _pixmap_from_gray(gray) -> QPixmap:
+    arr = np.ascontiguousarray(np.clip(gray, 0, 255).astype(np.uint8))
+    image = QImage(arr.data, arr.shape[1], arr.shape[0], arr.shape[1], QImage.Format.Format_Grayscale8)
+    return QPixmap.fromImage(image.copy())
+
+
 class _Call(QThread):
     done = Signal(object)
     failed = Signal(str)
@@ -51,7 +57,7 @@ class _Call(QThread):
 class PageCanvas(QWidget):
     """Source page with panel rectangles in source pixels."""
 
-    changed = Signal(str)
+    changed = Signal(str, int, int, int, int)
     drawn = Signal(int, int, int, int)
     selected = Signal(str)
 
@@ -69,15 +75,22 @@ class PageCanvas(QWidget):
         self.also_id: str | None = None
         self.add_mode = False
         self._drag = None
+        self._override: dict = {}
 
-    def set_page(self, path: Path | None, panels, numbers, bleed, page_w, page_h) -> None:
+    def set_page(self, path: Path | None, panels, numbers, bleed, page_w, page_h, gray=None) -> None:
         self._panels = list(panels)
         self._numbers = dict(numbers)
         self._bleed = int(bleed)
         self._page_w = int(page_w)
         self._page_h = int(page_h)
-        self._pixmap = QPixmap(str(path)) if path and Path(path).is_file() else None
-        if self._pixmap is not None and self._pixmap.isNull():
+        self._override = {}
+        if gray is not None:
+            self._pixmap = _pixmap_from_gray(gray)
+        elif path and Path(path).is_file():
+            self._pixmap = QPixmap(str(path))
+            if self._pixmap.isNull():
+                self._pixmap = None
+        else:
             self._pixmap = None
         self._drag = None
         self.update()
@@ -160,7 +173,7 @@ class PageCanvas(QWidget):
         elif kind == "move":
             _kind, pid, start, (x0, y0, x1, y1) = self._drag
             dx, dy = point[0] - start[0], point[1] - start[1]
-            self._set_local(pid, x0 + dx, y0 + dy, x1 + dx, y1 + dy)
+            self._override[pid] = self._clamped(x0 + dx, y0 + dy, x1 + dx, y1 + dy)
         else:
             _kind, pid, handle, (x0, y0, x1, y1) = self._drag
             nx0, ny0, nx1, ny1 = x0, y0, x1, y1
@@ -172,7 +185,7 @@ class PageCanvas(QWidget):
                 ny0 = point[1]
             if "s" in handle:
                 ny1 = point[1]
-            self._set_local(pid, nx0, ny0, nx1, ny1)
+            self._override[pid] = self._clamped(nx0, ny0, nx1, ny1)
         self.update()
 
     def mouseReleaseEvent(self, _event) -> None:  # noqa: N802
@@ -189,15 +202,18 @@ class PageCanvas(QWidget):
             self.update()
             return
         pid = self._drag[1]
+        box = self._override.get(pid)
         self._drag = None
-        self.changed.emit(pid)
+        self._override = {}
+        if box:
+            self.changed.emit(pid, *box)
+        else:
+            self.changed.emit(pid, 0, 0, 0, 0)
 
-    def _set_local(self, pid, x0, y0, x1, y1) -> None:
+    def _clamped(self, x0, y0, x1, y1):
         from .studio_project import clamp_box
 
-        box = clamp_box(x0, y0, x1, y1, self._page_w, self._page_h)
-        panel = self._by_id(pid)
-        panel.x0, panel.y0, panel.x1, panel.y1 = box
+        return clamp_box(x0, y0, x1, y1, self._page_w, self._page_h)
 
     def _by_id(self, pid):
         for panel in self._panels:
@@ -206,7 +222,7 @@ class PageCanvas(QWidget):
         raise KeyError(pid)
 
     def _box_of(self, panel):
-        return (panel.x0, panel.y0, panel.x1, panel.y1)
+        return self._override.get(panel.id, (panel.x0, panel.y0, panel.x1, panel.y1))
 
     def _bleed_box(self, box):
         x0, y0, x1, y1 = box
@@ -288,6 +304,7 @@ class PageCanvas(QWidget):
 
 class BoardList(QListWidget):
     changed = Signal()
+    panel_dropped = Signal(int, str)
 
     def __init__(self, page_index: int):
         super().__init__()
@@ -308,9 +325,41 @@ class BoardList(QListWidget):
         self.setSpacing(4)
         self.setSelectionMode(QAbstractItemView.SelectionMode.ExtendedSelection)
 
+    def dragEnterEvent(self, event) -> None:  # noqa: N802
+        if event.mimeData().hasFormat("application/x-comics-panel"):
+            event.acceptProposedAction()
+        else:
+            super().dragEnterEvent(event)
+
     def dropEvent(self, event) -> None:  # noqa: N802
+        if event.mimeData().hasFormat("application/x-comics-panel"):
+            panel_id = bytes(event.mimeData().data("application/x-comics-panel")).decode()
+            self.panel_dropped.emit(self.page_index, panel_id)
+            event.acceptProposedAction()
+            return
         super().dropEvent(event)
         self.changed.emit()
+
+    def dragMoveEvent(self, event) -> None:  # noqa: N802
+        if event.mimeData().hasFormat("application/x-comics-panel"):
+            event.acceptProposedAction()
+        else:
+            super().dragMoveEvent(event)
+
+
+class BinList(QListWidget):
+    """Library thumbnails. Dragging one copies a reference onto a layout page."""
+
+    def startDrag(self, _actions) -> None:  # noqa: N802
+        item = self.currentItem()
+        panel_id = item.data(Qt.ItemDataRole.UserRole) if item is not None else None
+        if not panel_id:
+            return
+        drag = QDrag(self)
+        mime = QMimeData()
+        mime.setData("application/x-comics-panel", str(panel_id).encode())
+        drag.setMimeData(mime)
+        drag.exec(Qt.DropAction.CopyAction)
 
 
 class StudioWindow(QMainWindow):
@@ -321,6 +370,7 @@ class StudioWindow(QMainWindow):
         self.setAcceptDrops(True)
         self.project = Project()
         self._source_id: str | None = None
+        self._placement_id: str | None = None
         self._thread: _Call | None = None
         self._boards: list[tuple[int, BoardList]] = []
         self._syncing = False
@@ -341,11 +391,13 @@ class StudioWindow(QMainWindow):
         self.save_btn = self._button("Save", self._save)
         self.export_btn = self._button("Export ghost PDF", self._export)
         self.catalog_btn = self._button("Export catalog", self._export_catalog)
+        self.page_png_btn = self._button("Export page PNG", self._export_page_png)
         controls.addWidget(self.import_btn)
         controls.addWidget(self.open_btn)
         controls.addWidget(self.save_btn)
         controls.addWidget(self.export_btn)
         controls.addWidget(self.catalog_btn)
+        controls.addWidget(self.page_png_btn)
         controls.addWidget(QLabel("Opacity"))
         self.opacity = QComboBox()
         self.opacity.addItems(["light", "medium", "dark"])
@@ -374,7 +426,11 @@ class StudioWindow(QMainWindow):
             ("Split", self._split),
             ("Merge", self._merge),
             ("Duplicate", self._duplicate),
-            ("Delete", self._delete),
+            ("Remove from page", self._delete),
+            ("Delete clip", self._delete_clip),
+            ("Undo", self._undo),
+            ("Redo", self._redo),
+            ("Link ink", self._link_ink),
             ("Earlier", lambda: self._nudge(-1)),
             ("Later", lambda: self._nudge(1)),
             ("Previous page", lambda: self._shift_page(-1)),
@@ -427,6 +483,16 @@ class StudioWindow(QMainWindow):
         self.catalog_tree.setHeaderHidden(True)
         self.catalog_tree.setMaximumHeight(160)
         self.catalog_tree.itemSelectionChanged.connect(self._catalog_selected)
+        right_layout.addWidget(QLabel("Library. Drag a clip onto a page."))
+        self.bin = BinList()
+        self.bin.setViewMode(QListWidget.ViewMode.IconMode)
+        self.bin.setIconSize(QSize(72, 54))
+        self.bin.setGridSize(QSize(96, 78))
+        self.bin.setFixedHeight(96)
+        self.bin.setMovement(QListWidget.Movement.Static)
+        self.bin.setDragEnabled(True)
+        self.bin.itemSelectionChanged.connect(self._bin_selected)
+        right_layout.addWidget(self.bin)
         right_layout.addWidget(self.catalog_tree)
         meta = QHBoxLayout()
         self.tags_edit = QLineEdit()
@@ -573,16 +639,19 @@ class StudioWindow(QMainWindow):
         self.canvas.selected_id = panel.id
         self._show_source(self._source_id)
         self._refresh_board()
-        self.status.setText(f"Added {self.project.catalog_id(panel)}.")
+        self.status.setText(f"Added clip {panel.id} to the library and the page.")
         self._load_meta(panel.id)
 
-    def _panel_edited(self, panel_id) -> None:
-        panel = self.project.panel(panel_id)
-        self.project.set_rect(panel_id, panel.x0, panel.y0, panel.x1, panel.y1)
+    def _panel_edited(self, panel_id, x0, y0, x1, y1) -> None:
+        if x1 - x0 < 8 or y1 - y0 < 8:
+            return
+        panel = self.project.set_rect(panel_id, x0, y0, x1, y1)
+        self._show_source(self._source_id)
         self._refresh_board()
+        uses = len(self.project.placements_of(panel_id))
         self.status.setText(
-            f"{self.project.catalog_id(panel)} is "
-            f"{panel.width()}×{panel.height()} source pixels."
+            f"Crop is {panel.width()}×{panel.height()} source pixels. "
+            f"Updated {uses} layout use(s). The scan file was not changed."
         )
 
     def _panel_picked(self, panel_id) -> None:
@@ -625,49 +694,105 @@ class StudioWindow(QMainWindow):
         if not pid:
             self.status.setText("Select a panel to duplicate.")
             return
-        copy = self.project.duplicate_panel(pid)
-        self.canvas.selected_id = copy.id
+        placed = self.project.duplicate_panel(pid)
+        self._placement_id = placed.id
         self._show_source(self._source_id)
         self._refresh_board()
-        self.status.setText(f"Duplicated as {self.project.catalog_id(copy)}.")
-        self._load_meta(copy.id)
+        self.status.setText(f"Placed {pid} again as {self.project.catalog_id(placed)}. The scan was not copied.")
+        self._load_meta(pid)
 
     def _delete(self) -> None:
+        placement_id = self._current_placement()
+        if not placement_id:
+            self.status.setText("Select a panel on a page to remove it from the layout.")
+            return
+        self.project.remove_placement(placement_id)
+        self._placement_id = None
+        self._show_source(self._source_id)
+        self._refresh_board()
+        self.status.setText("Removed from the page. The clip is still in the library.")
+
+    def _delete_clip(self) -> None:
         pid = self.canvas.selected_id
         if not pid:
-            self.status.setText("Select a panel to delete.")
+            self.status.setText("Select a clip to delete from the library.")
             return
         self.project.delete_panel(pid)
         self.canvas.selected_id = None
         self.canvas.also_id = None
+        self._placement_id = None
         self._show_source(self._source_id)
         self._refresh_board()
-        self.status.setText("Deleted the panel.")
+        self.status.setText("Deleted the clip and every place it was used.")
+
+    def _undo(self) -> None:
+        if not self.project.undo():
+            self.status.setText("Nothing to undo.")
+            return
+        self._arrays = {}
+        self._show_source(self._source_id)
+        self._refresh_board()
+        self.status.setText("Undid the last layout or crop edit.")
+
+    def _redo(self) -> None:
+        if not self.project.redo():
+            self.status.setText("Nothing to redo.")
+            return
+        self._arrays = {}
+        self._show_source(self._source_id)
+        self._refresh_board()
+        self.status.setText("Redid the edit.")
+
+    def _link_ink(self) -> None:
+        if not self._source_id:
+            self.status.setText("Select the pencil scan first.")
+            return
+        path, _ = QFileDialog.getOpenFileName(self, "Ink scan of this page", "", SCAN_FILTER)
+        if not path:
+            return
+        try:
+            self.project.attach_ink(path, self._source_id)
+        except Exception as exc:
+            self.status.setText(f"{type(exc).__name__}: {exc}")
+            return
+        self._fill_sources(self._source_id)
+        self.status.setText("Linked the ink scan as another take. Set the stage to ink to flip the clip.")
+
+    def _current_placement(self) -> str | None:
+        if self._placement_id and any(item.id == self._placement_id for item in self.project.placements):
+            return self._placement_id
+        panel_id = self.canvas.selected_id
+        if not panel_id:
+            return self._one_board_selection()
+        uses = self.project.placements_of(panel_id)
+        return uses[0].id if uses else None
 
     def _nudge(self, steps: int) -> None:
-        pid = self.canvas.selected_id or self._one_board_selection()
-        if not pid:
-            self.status.setText("Select a panel to move.")
+        placement_id = self._current_placement()
+        if not placement_id:
+            self.status.setText("Select a panel on a page to move it.")
             return
-        self.project.move_by(pid, steps)
+        self.project.move_by(placement_id, steps)
+        self._placement_id = placement_id
         self._show_source(self._source_id)
         self._refresh_board()
-        self._select_board_item(pid)
-        self.status.setText(f"Now {self.project.catalog_id(self.project.panel(pid))}.")
-        self._load_meta(pid)
+        self._select_board_item(placement_id)
+        self.status.setText(f"Now {self.project.catalog_id(self.project.placement(placement_id))}.")
+        self._load_meta(self.project.placement(placement_id).panel_id)
 
     def _shift_page(self, steps: int) -> None:
-        pid = self.canvas.selected_id or self._one_board_selection()
-        if not pid:
-            self.status.setText("Select a panel to move.")
+        placement_id = self._current_placement()
+        if not placement_id:
+            self.status.setText("Select a panel on a page to move it.")
             return
-        panel = self.project.panel(pid)
-        self.project.move_to_page(pid, panel.board_page + steps)
+        item = self.project.placement(placement_id)
+        self.project.move_to_page(placement_id, item.board_page + steps)
+        self._placement_id = placement_id
         self._show_source(self._source_id)
         self._refresh_board()
-        self._select_board_item(pid)
-        self.status.setText(f"Now {self.project.catalog_id(self.project.panel(pid))}.")
-        self._load_meta(pid)
+        self._select_board_item(placement_id)
+        self.status.setText(f"Now {self.project.catalog_id(self.project.placement(placement_id))}.")
+        self._load_meta(self.project.placement(placement_id).panel_id)
 
     def _set_opacity(self, name: str) -> None:
         self.project.opacity = name
@@ -681,7 +806,7 @@ class StudioWindow(QMainWindow):
         cols, rows = self.layout_box.currentData()
         self.project.columns = int(cols)
         self.project.rows = int(rows)
-        if self.project.panels:
+        if self.project.placements:
             self.project.pack_grid()
             self._show_source(self._source_id)
             self._refresh_board()
@@ -730,14 +855,19 @@ class StudioWindow(QMainWindow):
             return
         page = self.project.source(source_id)
         panels = [p for p in self.project.panels if p.source_id == source_id]
-        numbers = {p.id: self.project.catalog_id(p) for p in panels}
+        numbers = {}
+        for panel in panels:
+            uses = self.project.placements_of(panel.id)
+            numbers[panel.id] = self.project.catalog_id(uses[0]) if uses else panel.id
+        width, height = page.view_size()
         self.canvas.set_page(
             self.project.image_path(source_id),
             panels,
             numbers,
             self.project.bleed,
-            page.width,
-            page.height,
+            width,
+            height,
+            gray=self.project.view_gray(source_id),
         )
 
     def _refresh_board(self) -> None:
@@ -754,10 +884,12 @@ class StudioWindow(QMainWindow):
             label = QLabel(f"Page {page_index + 1}")
             listing = BoardList(page_index)
             listing.changed.connect(self._queue_sync)
+            listing.panel_dropped.connect(self._place_from_bin)
             listing.itemSelectionChanged.connect(lambda widget=listing: self._board_selection(widget))
-            for panel in self.project.panels_on(page_index):
-                item = QListWidgetItem(self.project.catalog_id(panel))
-                item.setData(Qt.ItemDataRole.UserRole, panel.id)
+            for placement in self.project.placements_on(page_index):
+                panel = self.project.panel(placement.panel_id)
+                item = QListWidgetItem(self.project.catalog_id(placement))
+                item.setData(Qt.ItemDataRole.UserRole, placement.id)
                 item.setIcon(QIcon(self._icon(panel)))
                 listing.addItem(item)
             self.board_layout.addWidget(label)
@@ -778,9 +910,9 @@ class StudioWindow(QMainWindow):
         pairs = []
         for page_index, widget in self._boards:
             for row in range(widget.count()):
-                pid = widget.item(row).data(Qt.ItemDataRole.UserRole)
-                if pid:
-                    pairs.append((pid, page_index))
+                placement_id = widget.item(row).data(Qt.ItemDataRole.UserRole)
+                if placement_id:
+                    pairs.append((placement_id, page_index))
         try:
             self.project.set_reading_order(pairs)
         except ValueError as exc:
@@ -795,9 +927,9 @@ class StudioWindow(QMainWindow):
     def _renumber(self) -> None:
         for _page, widget in self._boards:
             for row in range(widget.count()):
-                pid = widget.item(row).data(Qt.ItemDataRole.UserRole)
-                if pid:
-                    widget.item(row).setText(self.project.catalog_id(self.project.panel(pid)))
+                placement_id = widget.item(row).data(Qt.ItemDataRole.UserRole)
+                if placement_id:
+                    widget.item(row).setText(self.project.catalog_id(self.project.placement(placement_id)))
 
     def _board_selection(self, widget: BoardList) -> None:
         if self._syncing:
@@ -805,8 +937,11 @@ class StudioWindow(QMainWindow):
         items = widget.selectedItems()
         if len(items) != 1:
             return
-        pid = items[0].data(Qt.ItemDataRole.UserRole)
-        panel = self.project.panel(pid)
+        placement_id = items[0].data(Qt.ItemDataRole.UserRole)
+        placement = self.project.placement(placement_id)
+        panel = self.project.panel(placement.panel_id)
+        self._placement_id = placement.id
+        pid = panel.id
         self.canvas.selected_id = pid
         if panel.source_id != self._source_id:
             self.source_list.blockSignals(True)
@@ -845,7 +980,7 @@ class StudioWindow(QMainWindow):
         return None
 
     def _icon(self, panel) -> QPixmap:
-        gray = self._page_array(panel.source_id)
+        gray = self._page_array(self.project.render_source(panel).id)
         crop = gray[panel.y0 : panel.y1, panel.x0 : panel.x1]
         if crop.size == 0:
             crop = np.full((8, 8), 255, dtype=np.uint8)
@@ -863,7 +998,7 @@ class StudioWindow(QMainWindow):
         if source_id not in cache:
             from ._pageio import load_gray
 
-            cache[source_id] = np.clip(load_gray(self.project.image_path(source_id)), 0, 255).astype(np.uint8)
+            cache[source_id] = np.clip(self.project.view_gray(source_id), 0, 255).astype(np.uint8)
             self._arrays = cache
         return cache[source_id]
 
@@ -881,16 +1016,17 @@ class StudioWindow(QMainWindow):
             return
         self.catalog_tree.blockSignals(True)
         self.catalog_tree.clear()
-        grouped: dict[int, list] = {}
-        for panel in self.project.reading_order():
+        grouped: dict[str, list] = {}
+        for panel in self.project.panels:
             if self._matches(panel):
-                grouped.setdefault(panel.board_page, []).append(panel)
+                grouped.setdefault(panel.source_id, []).append(panel)
         selected = self.canvas.selected_id
-        for page_index in sorted(grouped):
-            parent = QTreeWidgetItem([f"Page {page_index + 1}"])
+        for source_id, panels in grouped.items():
+            source = self.project.source(source_id)
+            parent = QTreeWidgetItem([f"{source.name} ({source.take})"])
             parent.setData(0, Qt.ItemDataRole.UserRole, None)
-            for panel in grouped[page_index]:
-                label = self.project.catalog_id(panel)
+            for panel in panels:
+                label = panel.id
                 if panel.tags:
                     label += "  " + ", ".join(panel.tags)
                 child = QTreeWidgetItem([label])
@@ -901,6 +1037,44 @@ class StudioWindow(QMainWindow):
             self.catalog_tree.addTopLevelItem(parent)
             parent.setExpanded(True)
         self.catalog_tree.blockSignals(False)
+        self._refresh_bin()
+
+    def _refresh_bin(self) -> None:
+        if not hasattr(self, "bin"):
+            return
+        self.bin.blockSignals(True)
+        self.bin.clear()
+        for panel in self.project.panels:
+            if not self._matches(panel):
+                continue
+            item = QListWidgetItem(panel.id)
+            item.setData(Qt.ItemDataRole.UserRole, panel.id)
+            item.setIcon(QIcon(self._icon(panel)))
+            self.bin.addItem(item)
+        self.bin.blockSignals(False)
+
+    def _bin_selected(self) -> None:
+        item = self.bin.currentItem()
+        if item is None:
+            return
+        panel_id = item.data(Qt.ItemDataRole.UserRole)
+        if not panel_id:
+            return
+        panel = self.project.panel(panel_id)
+        self.canvas.selected_id = panel_id
+        if panel.source_id != self._source_id:
+            self._show_source(panel.source_id)
+        else:
+            self.canvas.update()
+        self._load_meta(panel_id)
+
+    def _place_from_bin(self, board_page: int, panel_id: str) -> None:
+        placed = self.project.place(panel_id, board_page)
+        self._placement_id = placed.id
+        self._refresh_board()
+        self.status.setText(
+            f"Placed {panel_id} as {self.project.catalog_id(placed)}. The source file was not changed."
+        )
 
     def _catalog_selected(self) -> None:
         items = self.catalog_tree.selectedItems()
@@ -969,7 +1143,7 @@ class StudioWindow(QMainWindow):
         if not result.available:
             self.status.setText(result.message)
         elif result.text:
-            self.status.setText(f"Read lettering on {self.project.catalog_id(self.project.panel(panel_id))}.")
+            self.status.setText(f"Read lettering on clip {panel_id}.")
         else:
             self.status.setText("Tesseract read this panel and returned no text.")
 
@@ -988,6 +1162,23 @@ class StudioWindow(QMainWindow):
         self.status.setText(
             f"Wrote {written['json'].name}, {written['csv'].name}, and {len(written['images'])} panel image(s)."
         )
+
+    def _export_page_png(self) -> None:
+        if not self.project.placements:
+            self.status.setText("There is no page layout to render.")
+            return
+        path, _ = QFileDialog.getSaveFileName(self, "Layout page", "page.png", "PNG (*.png)")
+        if not path:
+            return
+        page_index = 0
+        if self._placement_id:
+            page_index = self.project.placement(self._placement_id).board_page
+        try:
+            dest = self.project.write_layout_image(page_index, path)
+        except Exception as exc:
+            self.status.setText(f"{type(exc).__name__}: {exc}")
+            return
+        self.status.setText(f"Rendered page {page_index + 1} to {dest}")
 
     def _run(self, fn, done, label: str) -> None:
         if self._thread is not None and self._thread.isRunning():
