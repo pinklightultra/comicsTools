@@ -1,13 +1,8 @@
-"""
-traceJockey Interactive Terminal User Interface (TUI).
-Built with Textual and Rich for modern terminal workflows.
-Supports:
-  - A100 GPU linework cleaning (directional morphology, toner suppression)
-  - Vector tracing with potrace and live SVG export
-  - Pencil ghost prepper for mono laser printing
-  - Comic panel isolation and gutter cutting
-  - Terminal ASCII/Unicode half-block scan inspector & diff viewer
-  - Live NVIDIA GPU hardware telemetry
+"""Terminal UI for pencil_cleaner.
+
+Prep, clean, panel cutting, a text preview of a scan, and the
+``get_gpu_info()`` table. The clean tab's ``gpu`` choice uses CUDA
+when PyTorch can see a device, and otherwise the CPU mask.
 """
 from __future__ import annotations
 
@@ -78,8 +73,10 @@ def render_terminal_ascii(image_path: Path, width: int = 70, height: int = 25) -
         return f"[red]Error rendering preview: {e}[/red]"
 
 
-class TraceJockeyApp(App):
-    """The traceJockey Terminal UI Application."""
+class PencilCleanerTui(App):
+    """Terminal UI for prep, clean, panel cutting, and a hardware readout."""
+
+    TITLE = "pencil_cleaner"
 
     CSS = """
     Screen {
@@ -104,7 +101,7 @@ class TraceJockeyApp(App):
     }
 
     .form-label {
-        font-style: bold;
+        text-style: bold;
         color: #38bdf8;
         margin-bottom: 1;
     }
@@ -168,27 +165,23 @@ class TraceJockeyApp(App):
                     with Container(classes="form-group"):
                         yield Label("Input Inked Scan / PDF Path:", classes="form-label")
                         yield Input(
-                            placeholder="/content/drive/MyDrive/Newtraces-1.png",
-                            value="/content/drive/MyDrive/Newtraces-1.png",
+                            placeholder="inked.png",
+                            value="",
                             id="clean-input",
                         )
-                        with Horizontal():
-                            yield Button("Preset: Newtraces-1", id="preset-newtraces1", classes="btn-preset")
-                            yield Button("Preset: Newtraces-2", id="preset-newtraces2", classes="btn-preset")
-                            yield Button("Preset: Scanned-01", id="preset-scanned1", classes="btn-preset")
 
                     with Container(classes="form-group"):
                         yield Label("Output Cleaned Image / PDF Path:", classes="form-label")
                         yield Input(
-                            placeholder="/content/cleaned_page.png",
-                            value="/content/cleaned_page.png",
+                            placeholder="clean.png",
+                            value="",
                             id="clean-output",
                         )
 
                     with Container(classes="form-group"):
                         yield Label("Cleaning Method:", classes="form-label")
                         yield RadioSet(
-                            RadioButton("GPU Tensor Directional (A100 Accelerated)", value=True, id="meth-gpu"),
+                            RadioButton("GPU (CUDA if a device is available)", value=True, id="meth-gpu"),
                             RadioButton("Potrace Vector Trace (.svg + .png)", id="meth-vector"),
                             RadioButton("Morphological (Classic Stroke Width)", id="meth-morph"),
                             RadioButton("Levels (Fast Contrast Remap)", id="meth-levels"),
@@ -208,7 +201,7 @@ class TraceJockeyApp(App):
                                 yield Label("Gamma Curve:")
                                 yield Input(value="1.6", id="clean-gamma")
 
-                    yield Button("⚡ Clean Linework on A100", id="btn-run-clean", classes="btn-run")
+                    yield Button("Clean", id="btn-run-clean", classes="btn-run")
 
             # TAB 2: PREP PENCIL GHOSTS
             with TabPane("✏️ Prep Pencil Ghost", id="tab-prep"):
@@ -216,23 +209,23 @@ class TraceJockeyApp(App):
                     with Container(classes="form-group"):
                         yield Label("Input Pencils Scan / PDF Path:", classes="form-label")
                         yield Input(
-                            placeholder="/content/drive/MyDrive/The comic pencils scanned.pdf",
-                            value="/content/drive/MyDrive/The comic pencils scanned.pdf",
+                            placeholder="pencils.png",
+                            value="",
                             id="prep-input",
                         )
                     with Container(classes="form-group"):
                         yield Label("Output Laser Print Ghost Path:", classes="form-label")
                         yield Input(
-                            placeholder="/content/pencil_ghost_ready.pdf",
-                            value="/content/pencil_ghost_ready.pdf",
+                            placeholder="ghost.png",
+                            value="",
                             id="prep-output",
                         )
                     with Container(classes="form-group"):
                         yield Label("Ghost Opacity Preset:", classes="form-label")
                         yield RadioSet(
-                            RadioButton("Light (Faint Laser Ghost ~0.08)", value=True, id="prep-light"),
-                            RadioButton("Medium (Standard Bristol ~0.15)", id="prep-med"),
-                            RadioButton("Dark (Heavy Paper ~0.25)", id="prep-dark"),
+                            RadioButton("Light (0.25)", value=True, id="prep-light"),
+                            RadioButton("Medium (0.40)", id="prep-med"),
+                            RadioButton("Dark (0.55)", id="prep-dark"),
                             id="prep-opacity-set",
                         )
                     yield Button("⚡ Generate Laser Print Ghost", id="btn-run-prep", classes="btn-run")
@@ -243,15 +236,15 @@ class TraceJockeyApp(App):
                     with Container(classes="form-group"):
                         yield Label("Input Page Scan:", classes="form-label")
                         yield Input(
-                            placeholder="/content/drive/MyDrive/Newtraces-1.png",
-                            value="/content/drive/MyDrive/Newtraces-1.png",
+                            placeholder="page.png",
+                            value="",
                             id="panels-input",
                         )
                     with Container(classes="form-group"):
                         yield Label("Output Panels Folder:", classes="form-label")
                         yield Input(
-                            placeholder="/content/panels_out",
-                            value="/content/panels_out",
+                            placeholder="panels",
+                            value="",
                             id="panels-output",
                         )
                     yield Button("⚡ Isolate & Export All Panels", id="btn-run-panels", classes="btn-run")
@@ -262,15 +255,14 @@ class TraceJockeyApp(App):
                     yield Label("Terminal Scan Inspector (Unicode Half-Block Rendering):", classes="form-label")
                     with Horizontal():
                         yield Input(
-                            value="/content/cleaned_page.png",
-                            placeholder="Path to image to inspect",
+                            value="",
+                            placeholder="clean.png",
                             id="inspect-path",
                         )
                         yield Button("Render Preview", id="btn-render-preview")
                     yield Static(id="preview-box")
 
-            # TAB 5: A100 TELEMETRY & HARDWARE
-            with TabPane("🖥️ A100 Hardware Telemetry", id="tab-hw"):
+            with TabPane("Hardware", id="tab-hw"):
                 with VerticalScroll():
                     yield Static(id="hw-details-box")
                     yield Button("Run GPU vs CPU Benchmark", id="btn-run-bench", classes="btn-preset")
@@ -280,7 +272,7 @@ class TraceJockeyApp(App):
 
     def on_mount(self) -> None:
         self.update_gpu_banner()
-        self.log_msg("traceJockey TUI initialized. Ready for comic linework processing.")
+        self.log_msg("pencil_cleaner TUI ready.")
 
     def log_msg(self, msg: str) -> None:
         log_widget = self.query_one("#log-pane", Log)
@@ -294,8 +286,7 @@ class TraceJockeyApp(App):
             text = (
                 f"🟢 [b]GPU ONLINE[/b] | {info['device_name']} | "
                 f"VRAM: {info['vram_allocated_gb']:.2f} GB / {info['vram_total_gb']:.2f} GB | "
-                f"CUDA: {info['cuda_version']} | Multiprocessors: {info['multiprocessors']} | "
-                f"⚡ Directional Tensor Engine Ready"
+                f"CUDA: {info['cuda_version']} | Multiprocessors: {info['multiprocessors']}"
             )
         else:
             text = "🟡 [b]CPU MODE[/b] | CUDA not detected. Falling back to CPU OpenCV/SciPy."
@@ -303,7 +294,7 @@ class TraceJockeyApp(App):
 
         # Update Tab 5 details
         hw_box = self.query_one("#hw-details-box", Static)
-        tbl = Table(title="Hardware & Accelerator Profile", border_style="green")
+        tbl = Table(title="Hardware", border_style="green")
         tbl.add_column("Property", style="cyan")
         tbl.add_column("Value", style="bold white")
         for k, v in info.items():
@@ -313,19 +304,7 @@ class TraceJockeyApp(App):
     def on_button_pressed(self, event: Button.ButtonEvent) -> None:
         btn_id = event.button.id
 
-        # Presets
-        if btn_id == "preset-newtraces1":
-            self.query_one("#clean-input", Input).value = "/content/drive/MyDrive/Newtraces-1.png"
-            self.log_msg("Selected preset: Newtraces-1.png")
-        elif btn_id == "preset-newtraces2":
-            self.query_one("#clean-input", Input).value = "/content/drive/MyDrive/Newtraces-2.png"
-            self.log_msg("Selected preset: Newtraces-2.png")
-        elif btn_id == "preset-scanned1":
-            self.query_one("#clean-input", Input).value = "/content/drive/MyDrive/Scanned Document-01.png"
-            self.log_msg("Selected preset: Scanned Document-01.png")
-
-        # Action: Clean Inked Scan
-        elif btn_id == "btn-run-clean":
+        if btn_id == "btn-run-clean":
             self.action_run_clean()
 
         # Action: Prep Pencil Ghost
@@ -464,7 +443,7 @@ class TraceJockeyApp(App):
         self.log_msg(f"Rendered terminal preview for {path.name}")
 
     def action_run_benchmark(self) -> None:
-        self.log_msg("▶ Running A100 GPU vs CPU Morphological Benchmark (3508x2550)...")
+        self.log_msg("▶ Running GPU vs CPU morphological benchmark on a random 3508×2550 field...")
         if not is_gpu_available():
             self.log_msg("❌ Benchmark requires CUDA GPU.")
             return
@@ -503,11 +482,14 @@ class TraceJockeyApp(App):
         gpu_ms = (time.time() - t0) * 1000
 
         speedup = cpu_ms / max(gpu_ms, 0.001)
-        self.log_msg(f"🏁 Benchmark Complete: CPU={cpu_ms:.1f}ms | A100 GPU={gpu_ms:.1f}ms | Speedup={speedup:.1f}x!")
+        device_name = get_gpu_info().get("device_name", "GPU")
+        self.log_msg(
+            f"Benchmark: CPU={cpu_ms:.1f}ms | {device_name}={gpu_ms:.1f}ms | speedup={speedup:.1f}x"
+        )
 
 
 def main() -> int:
-    app = TraceJockeyApp()
+    app = PencilCleanerTui()
     app.run()
     return 0
 

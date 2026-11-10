@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "pencil-cleaner"
 version = "0.4.9"
-description = "traceJockey linework cleaner: prep comic pencils, strip pencil ghosts, score printer tests, deskew/flatten, and cut panels."
+description = "Prep comic pencil scans for printing, strip pencil ghosts from inked scans, score printer tests, deskew, and cut panels."
 readme = "README.md"
 requires-python = ">=3.8"
 dependencies = [
@@ -27,8 +27,7 @@ all = ["PyMuPDF", "cairosvg", "pypdfium2", "gradio", "textual", "rich"]
 [project.scripts]
 pencil-cleaner = "pencil_cleaner.cli:main"
 pencil-cleaner-app = "pencil_cleaner.app:main"
-tracejockey = "pencil_cleaner.cli:main"
-tracejockey-tui = "pencil_cleaner.tui:main"
+pencil-cleaner-tui = "pencil_cleaner.tui:main"
 
 [tool.setuptools.packages.find]
 include = ["pencil_cleaner*"]

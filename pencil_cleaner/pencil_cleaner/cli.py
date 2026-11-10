@@ -45,19 +45,20 @@ def main(argv=None) -> int:
         "--method",
         choices=METHODS,
         default="vector",
-        help="levels (fast, brightness-only) | morphological (the 'inker', "
-        "stroke-thickness based) | vector (default: the 'vectorizer', traces "
-        "the morphological mask with potrace for the cleanest edges)",
+        help="levels | morphological | vector (default) | gpu. "
+        "vector traces with potrace and falls back to morphological "
+        "if potrace or cairosvg is missing. gpu uses CUDA when PyTorch "
+        "can see a device; otherwise the CPU mask",
     )
     p_clean.add_argument("--dpi", type=int, default=300, help="only used for PDF input")
     p_clean.add_argument(
         "--svg", type=Path, default=None, help="save traced ink as .svg (method=vector, single image input only)"
     )
-    p_clean.add_argument("--dark-thresh", type=int, default=60, help="levels/morphological/vector mask threshold")
-    p_clean.add_argument("--min-stroke-px", type=int, default=5, help="morphological/vector min stroke width")
+    p_clean.add_argument("--dark-thresh", type=int, default=60, help="morphological, vector, and gpu. Ignored by levels")
+    p_clean.add_argument("--min-stroke-px", type=int, default=5, help="morphological, vector, and gpu. Ignored by levels")
     p_clean.add_argument("--black", type=int, default=None, help="override the black point (method-specific default otherwise)")
     p_clean.add_argument("--white", type=int, default=None, help="override the white point (method-specific default otherwise)")
-    p_clean.add_argument("--gamma", type=float, default=1.6, help="morphological/vector ink-darkening curve")
+    p_clean.add_argument("--gamma", type=float, default=1.6, help="morphological, vector, and gpu. Ignored by levels")
 
     p_marks = sub.add_parser(
         "marks",
@@ -141,7 +142,7 @@ def main(argv=None) -> int:
 
         c = Console()
         info = get_gpu_info()
-        tbl = Table(title="traceJockey Accelerator Telemetry", border_style="green")
+        tbl = Table(title="pencil_cleaner GPU", border_style="green")
         tbl.add_column("Property", style="cyan")
         tbl.add_column("Value", style="bold white")
         for k, v in info.items():

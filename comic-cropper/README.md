@@ -1,8 +1,8 @@
-# traceJockey // cropper
+# comic-cropper
 
-Local-first web application for isolating penciled comic panels, exporting them enlarged for physical inking, and saving project state for layout assembly.
+Browser page for framing penciled comic panels, exporting them larger so they can be inked, and saving the crops. No build. Once the two CDN scripts below are cached, the scans stay in the browser.
 
-Designed for the scan → isolate/enlarge → print-ghost → ink-large → layout workflow. Runs fully offline in the browser (no backend) once CDN assets are cached.
+Part of [comicsTools](../README.md). The other program is [pencil_cleaner](../pencil_cleaner/README.md). The loop those two cover is scan, crop and enlarge, print a pale ghost, ink, then clean the scan.
 
 ## How to run
 

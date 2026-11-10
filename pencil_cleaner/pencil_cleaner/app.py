@@ -480,15 +480,15 @@ def run_panels(
 # ---------------------------------------------------------------------------
 
 INTRO = """
-# traceJockey // cleaner
+# pencil_cleaner
 
-**Optical Inking & Linework Restoration System**
+Lighten a pencils-only scan for printing, or strip the pencil ghost from an inked scan.
 
-**Workflow:** draw in pencil → prep & print a faint ghost → ink on paper → scan → clean.
+**Workflow:** pencil scan → faint print → ink on paper → scan → clean.
 
-Also: score printer-test swatches, deskew/flatten scans, and cut comic panels.
+Also: score printer-test swatches, deskew or flatten a scan, and cut panels.
 
-Use the tabs below. Upload comic-page scans (PNG/JPG/TIFF or PDF). Results download as PNG/PDF (or a zip for batches).
+Use the tabs below. Upload PNG, JPG, TIFF, or PDF. Results download as PNG, PDF, or a zip of panels.
 """
 
 
@@ -496,7 +496,7 @@ def build_demo():
     """Construct the Gradio Blocks demo (does not launch)."""
     import gradio as gr
 
-    with gr.Blocks(title="traceJockey // cleaner") as demo:
+    with gr.Blocks(title="pencil_cleaner") as demo:
         gr.Markdown(INTRO)
 
         with gr.Tabs():

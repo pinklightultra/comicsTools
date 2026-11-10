@@ -13,8 +13,8 @@ Tools for comic pages that are drawn in pencil and inked by hand:
 2. ``remove_pencils`` / ``clean_pdf``
    Take a scan of an INKED page (pencil ghosts, eraser smudges,
    scanner-lid shadows and all) and strip everything that isn't ink,
-   leaving clean black linework on a pure white page. Three
-   interchangeable techniques are available via ``method=``:
+   leaving clean black linework on a pure white page. These
+   techniques are available via ``method=``:
 
      "levels"          flat brightness/contrast remap -- fast, no
                         opencv/potrace needed. `levels_clean`
@@ -32,6 +32,12 @@ Tools for comic pages that are drawn in pencil and inked by hand:
                         installed. `trace_mask_to_svg` +
                         `rasterize_svg_mask` / `vectorize_mask` /
                         `vector_clean`
+     "gpu"              CUDA mask when PyTorch can see a device
+                        (disk erosion plus horizontal, vertical, and
+                        both diagonal line kernels). Without CUDA,
+                        the CPU morphological mask. ``toner_filter``
+                        computes two speckle tensors and does not
+                        apply them. `gpu_clean`
 
    Each technique above is also a plain, independently callable
    function if you want to inspect a mask or build your own pipeline.

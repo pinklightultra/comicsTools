@@ -1,10 +1,14 @@
-"""
-GPU-accelerated comic linework cleaning and stroke restoration engine.
-Leverages NVIDIA Tensor Cores / CUDA via PyTorch for:
-  - Multi-directional stroke continuity (preserves hair-thin nib tapers and crosshatching)
-  - Laser toner spectral/speckle filtering (strips printer halftones without clipping ink)
-  - Tensor-based geodesic morphological reconstruction (sub-10ms on full 300-600 DPI pages)
-  - High-throughput batch processing for multi-page comic PDFs
+"""Optional CUDA path for ``method="gpu"``.
+
+When PyTorch is installed and ``torch.cuda.is_available()`` is true, the
+mask is built on that device: a disk erosion, plus line kernels
+(horizontal, vertical, and both diagonals) of length ``line_reach`` when
+``directional`` is true. Otherwise ``gpu_build_ink_mask`` calls the CPU
+``build_ink_mask`` and ignores ``directional`` and ``toner_filter``.
+
+``toner_filter=True`` computes two speckle tensors and does not apply
+them. The mask does not change because of that flag. Nothing here
+requires a particular GPU, and nothing records a timing.
 """
 from __future__ import annotations
 
@@ -109,7 +113,7 @@ def gpu_build_ink_mask(
     directional : if True, preserves thin lines that extend along any angle
                   (preserves fine nib tapers, crosshatching, and brush lines)
     line_reach : length of the directional line detector (odd integer)
-    toner_filter : suppress isolated isotropic toner grain clusters
+    toner_filter : computed and not applied. Does not change the mask.
     max_iterations : maximum geodesic reconstruction dilation passes
 
     Returns
@@ -147,14 +151,10 @@ def gpu_build_ink_mask(
     else:
         seed = eroded_disk
 
-    # 3. Optional laser toner micro-speckle suppression
+    # Computed and discarded. The reconstruction below does not read these tensors.
     if toner_filter:
-        # Toner carbon speckles form tiny isolated clusters <= 2px with no directional continuity
-        tiny_noise = candidate - F.max_pool2d(seed, kernel_size=3, stride=1, padding=1)
-        # Filter out candidate areas that are purely isolated speckles
-        isolated_speckle = -F.max_pool2d(-candidate, kernel_size=3, stride=1, padding=1)
-        # Suppress candidate noise in non-seed areas
-        pass
+        _tiny_noise = candidate - F.max_pool2d(seed, kernel_size=3, stride=1, padding=1)
+        _isolated_speckle = -F.max_pool2d(-candidate, kernel_size=3, stride=1, padding=1)
 
     # 4. High-speed Geodesic Reconstruction on CUDA
     # Dilation loop constrained to candidate envelope
@@ -206,7 +206,11 @@ def gpu_clean(
     white: int = 170,
     gamma: float = 1.6,
 ) -> Array:
-    """Full end-to-end linework cleaner using A100 GPU tensor acceleration."""
+    """Build the ink mask and remap gray inside it.
+
+    On CUDA this is ``gpu_build_ink_mask`` plus ``gpu_darken_ink``.
+    Without CUDA it is the CPU morphological path.
+    """
     mask = gpu_build_ink_mask(
         gray,
         dark_thresh=dark_thresh,
@@ -229,8 +233,10 @@ def gpu_vector_clean(
     gamma: float = 1.6,
     svg_output_path: Union[str, Path, None] = None,
 ) -> Tuple[Array, bool]:
-    """GPU-enhanced vector cleaner: generates high-fidelity mask preserving nib tapers,
-    traces smooth bezier curves with potrace, and returns (cleaned_array, used_vector).
+    """Build the mask with ``gpu_build_ink_mask``, trace it, and darken the ink.
+
+    Returns ``(cleaned_array, used_vector)``. ``used_vector`` is false when
+    potrace or cairosvg is missing.
     """
     from .cleanup import vectorize_mask
 

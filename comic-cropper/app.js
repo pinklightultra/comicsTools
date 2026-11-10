@@ -1,5 +1,5 @@
 /**
- * Comic Cropper — local-first panel cropper for penciled comic scans.
+ * Comic Cropper — panel cropper for penciled comic scans.
  * Vanilla JS, no build step. Project files are ZIP (.comiccrop) via JSZip.
  */
 (function () {

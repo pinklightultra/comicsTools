@@ -1,4 +1,6 @@
-# traceJockey // cleaner (`pencil_cleaner`)
+# pencil_cleaner
+
+Part of [comicsTools](../README.md). Panel cropping is [comic-cropper](../comic-cropper/README.md).
 
 Tools for hand-drawn comics that go **pencil → print → ink → scan**,
 plus printer-test scoring, deskew/flatten, panel cutting, optional
@@ -53,43 +55,33 @@ Optional extras (see `pyproject.toml`):
 | `marks` | pypdfium2 |
 | `web` | gradio |
 | `tui` | textual, rich |
-| `gpu` | torch (CUDA/A100 tensor acceleration) |
-| `all` | all of the above |
+| `gpu` | torch. Not included in `all`. |
+| `all` | PyMuPDF, cairosvg, pypdfium2, gradio, textual, rich. Not torch, and not the `potrace` binary. |
 
 Also useful as a **system** package: `potrace` (`apt install potrace` /
 `brew install potrace`) so `method="vector"` can trace true vector edges.
 Without it, `"vector"` silently falls back to morphological cleanup.
 
-## Interactive Terminal UI (TUI)
+## Terminal UI
 
-A dedicated, full-screen terminal interface built with **Textual** and **Rich**:
+Textual UI for the same jobs as the CLI. Needs the `tui` extra (included in `all`):
 
 ```bash
-tracejockey-tui
-# or:
 python -m pencil_cleaner tui
+# or, after install:
+pencil-cleaner-tui
 ```
 
-Features:
-- **Live A100 GPU Hardware Telemetry**: VRAM gauge, active compute mode, and multiprocessor count.
-- **Clean Inked Scans**: Toggle between GPU Directional, Potrace Vector, Morphological, and Levels with live parameter inputs.
-- **Pencil Ghost Prepper**: Instant opacity presets for mono laser printing.
-- **Comic Panel Cutter**: Gutter isolation and multi-panel batch exports.
-- **Terminal Scan Visualizer**: Real-time ASCII and Unicode half-block (`▀`,`▄`,`█`) scan inspector and quality diffs rendered directly inside your terminal window.
-- **Live Benchmarks**: Instant GPU vs CPU morphology speed comparisons.
-
-## GPU Tensor Acceleration & Directional Inker
-
-When running with an NVIDIA GPU (e.g. A100 / RTX):
+The clean tab selects `gpu`, `vector`, `morphological`, or `levels`. `gpu` uses CUDA when PyTorch can see a device, and otherwise the CPU mask. Opacity presets are the real ones: light 0.25, medium 0.40, dark 0.55. The hardware tab prints `get_gpu_info()`. The benchmark button runs only when CUDA is available. It times a random 3508×2550 field for 40 reconstruction steps, not a comic scan, and the log names the device that answered.
 
 ```bash
-tracejockey clean inked.png -o clean.png --method gpu
-tracejockey gpu-info
+python -m pencil_cleaner clean inked.png -o clean.png --method gpu
+python -m pencil_cleaner gpu-info
 ```
 
-- **Directional Nib & Crosshatch Preservation**: Evaluates multi-angle stroke continuity (0°, 45°, 90°, 135°) using parallel 2D tensor convolutions on CUDA. Hairline crosshatching and delicate pen tapers that isotropic disk erosion erases are fully preserved.
-- **Laser Toner Micro-Speckle Filtering**: Discriminates isolated high-frequency laser toner print patterns from continuous wet ink flow.
-- **Sub-Second Processing**: Full 300–600 DPI comic scans process in ~600 ms on an A100.
+`gpu-info` imports Rich, so it needs the `tui` extra. With no CUDA device the device name is `CPU (No CUDA)`.
+
+`--method gpu` builds the mask on CUDA when that device exists: a disk erosion, plus line kernels (horizontal, vertical, and both diagonals) of length `line_reach` (default 9). `toner_filter=True` computes two speckle tensors and does not apply them, so the flag does not change the mask. Without CUDA, `gpu_build_ink_mask` calls the CPU `build_ink_mask` and ignores `directional` and `toner_filter`. The code does not require a particular board, and this repository has no checked-in timing of a comic scan.
 
 ## Gradio web app (browser UX)
 
@@ -133,7 +125,7 @@ Root files Spaces expects:
 - `app.py` — builds `demo = build_demo()` (Spaces launches it)
 - `requirements.txt` — runtime deps including `gradio`
 
-## Three cleanup methods
+## Cleanup methods
 
 `remove_pencils` / `clean_pdf` take a `method=` argument. Each is
 also a plain function you can call directly if you want to inspect a
@@ -144,6 +136,7 @@ mask or build your own pipeline.
 | `"levels"` | Flat brightness/contrast remap: below a black point → solid ink, above a white point → paper, linear ramp between. Fast, no morphology. | `levels_clean` | numpy only |
 | `"morphological"` (the **inker**) | Separates ink from ghost by stroke *thickness*, not just brightness. Real ink is bold enough to survive being eroded and rebuilt; thin pencil ghosts and grain don't survive and disappear outright. | `build_ink_mask`, `darken_ink`, `morphological_clean` | opencv-python |
 | `"vector"` (the **vectorizer**, default) | Traces the morphological mask to true vector shapes with `potrace`, then rasterizes that back and uses it as the mask — a smooth mathematical edge instead of a pixel threshold, plus an editable `.svg` of just the linework. | `trace_mask_to_svg`, `rasterize_svg_mask`, `vectorize_mask`, `vector_clean` | `potrace` binary + `cairosvg` |
+| `"gpu"` | Same thickness idea on CUDA when PyTorch can see a device. Without CUDA, the CPU morphological mask. `toner_filter` does not change the mask. The Gradio radio does not list this method. | `gpu_clean` | `torch` and a CUDA device for the GPU path |
 
 Start with `"levels"` when the pencil is clearly lighter than ink.
 Use `"morphological"` when a ghost is nearly as dark as ink. Leave
