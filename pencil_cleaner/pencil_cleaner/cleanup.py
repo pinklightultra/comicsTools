@@ -328,10 +328,11 @@ def remove_pencils(
     image_path : path to the scanned inked page
     output_path : where to save the cleaned PNG. If None, only the
         PIL Image is returned.
-    method : "levels" | "morphological" | "vector" (default). See the
-        module docstring for what each one trades off. `"vector"`
+    method : "levels" | "morphological" | "vector" (default) | "gpu".
+        See the module docstring for what each one trades off. `"vector"`
         automatically falls back to the morphological result if
-        `potrace`/`cairosvg` aren't installed.
+        `potrace`/`cairosvg` aren't installed. `"gpu"` uses CUDA when
+        PyTorch can see a device, and otherwise the CPU morphological mask.
     dark_thresh, min_stroke_px : see `build_ink_mask`. Ignored by
         `method="levels"`.
     black, white : the remap thresholds. Defaults depend on `method`:
