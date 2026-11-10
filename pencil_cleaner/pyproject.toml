@@ -22,7 +22,7 @@ marks = ["pypdfium2"]
 web = ["gradio"]
 tui = ["textual", "rich"]
 gpu = ["torch"]
-gui = ["PySide6-Essentials>=6.5"]
+gui = ["PySide6-Essentials>=6.5", "PyMuPDF"]
 all = ["PyMuPDF", "cairosvg", "pypdfium2", "gradio", "textual", "rich"]
 
 [project.scripts]

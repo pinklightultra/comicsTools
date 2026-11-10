@@ -4,21 +4,25 @@ comicsTools is two programs for cartoonists who print a penciled page, ink it by
 
 ## Download the app
 
-![comicsTools window after cleaning a test scan](docs/comics-tools.png)
+![comicsTools after a scan is cropped and the panel order is swapped](docs/comics-tools.png)
 
-One command from a checkout of this repository installs the desktop window and the libraries it uses:
+![Import, rearrange, export a ghost PDF](docs/comics-tools.gif)
+
+One command from a checkout installs the window and the libraries it uses:
 
 ```bash
 pip install "./pencil_cleaner[gui]"
 ```
 
-Start it with `comics-tools`, or `python -m pencil_cleaner gui`. Drop a scan on the window or use Choose. The tasks are prep, clean, deskew, cut panels, printer test, and corner-mark cleanup. Defaults match the command-line flags, except Clean starts on `morphological`, which does not need `potrace`. The `clean` command still defaults to `vector`. Progress and errors show in the window, and a raster result is previewed next to the input.
+Start it with `comics-tools`, or `python -m pencil_cleaner gui`. Drop scans or a PDF on the window, or use Import. The window deskews each page, finds the panel boxes, and puts them on a board. Drag the thumbnails to change reading order or move a panel onto another page. Bleed is in source pixels (default 12). Export ghost PDF writes US Letter pages at the light, medium, or dark preset, with corner registration marks and a printer-test page.
 
-The command-line tools below still work.
+A project is a folder (`project.json` and `sources/`). The scans stay in that folder.
 
-Prebuilt binaries for macOS, Windows, and Linux are built by [`.github/workflows/desktop.yml`](.github/workflows/desktop.yml) when a `v*` tag is pushed, and attached to the GitHub release for that tag. Publishing a release from the GitHub UI builds them too. The macOS app is not notarized. On Linux, if the window says the Qt platform plugin could not load, install the libraries it names. On Debian or Ubuntu that is `libegl1` and `libxkbcommon-x11-0`.
+The command-line tools below still work. [comic-cropper](comic-cropper/README.md) is still the browser page.
 
-Drawing the panel boxes is still [comic-cropper](comic-cropper/README.md), in the browser. The window does not replace that page.
+Prebuilt binaries for macOS, Windows, and Linux are built by [`.github/workflows/desktop.yml`](.github/workflows/desktop.yml) when a `v*` tag is pushed, and attached to the GitHub release for that tag. Publishing a release from the GitHub UI builds them too. The macOS app is not notarized. On Linux, if Qt says the platform plugin could not load, install the libraries it names. On Debian or Ubuntu that is `libegl1` and `libxkbcommon-x11-0`.
+
+Not in this window yet: importing the inked scan, registering it on the corner marks, the ink-cleanup slider, SVG trace, and exporting the finished pages as PNG, TIFF, PDF, or SVG. `pencil-cleaner clean` still does the cleanup from the terminal.
 
 Toner is carbon, so dropping a color channel does not remove a laser ghost. The page images stay on the machine that opens them. `pencil_cleaner` is version 0.4.9. The cropper is a static page and has no package version.
 

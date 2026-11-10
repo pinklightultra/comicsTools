@@ -53,6 +53,7 @@ jobs:
             --hidden-import cv2 \
             --hidden-import scipy.ndimage \
             --hidden-import PIL.Image \
+            --hidden-import pymupdf \
             comics_tools_entry.py
 
       - name: Pack Linux

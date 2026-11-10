@@ -15,7 +15,7 @@ def main(argv=None) -> int:
             "  comics-tools\n"
         )
         return 1
-    from .desktop import main as run_window
+    from .studio import main as run_window
 
     return run_window(argv)
 

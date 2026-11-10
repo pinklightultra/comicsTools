@@ -56,7 +56,7 @@ Optional extras (see `pyproject.toml`):
 | `web` | gradio |
 | `tui` | textual, rich |
 | `gpu` | torch. Not included in `all`. |
-| `gui` | PySide6-Essentials. The desktop window. Not included in `all`. |
+| `gui` | PySide6-Essentials and PyMuPDF. The desktop window. Not included in `all`. |
 | `all` | PyMuPDF, cairosvg, pypdfium2, gradio, textual, rich. Not torch, not PySide6, and not the `potrace` binary. |
 
 Also useful as a **system** package: `potrace` (`apt install potrace` /
@@ -72,7 +72,7 @@ pip install "./pencil_cleaner[gui]"
 comics-tools
 ```
 
-Same window: `python -m pencil_cleaner gui`. Drop a scan on the window or use Choose. Prep, clean, deskew, panels, printer test, and corner marks are the tasks. The command-line flags are unchanged. See the root README for the screenshot and the release builds.
+`comics-tools` is the project window: import scans, deskew, panel boxes, a board you can reorder, and a US Letter ghost PDF. The command-line flags are unchanged. See the root README for the screenshot and the release builds.
 
 ## Terminal UI
 
