@@ -22,12 +22,14 @@ marks = ["pypdfium2"]
 web = ["gradio"]
 tui = ["textual", "rich"]
 gpu = ["torch"]
+gui = ["PySide6-Essentials>=6.5"]
 all = ["PyMuPDF", "cairosvg", "pypdfium2", "gradio", "textual", "rich"]
 
 [project.scripts]
 pencil-cleaner = "pencil_cleaner.cli:main"
 pencil-cleaner-app = "pencil_cleaner.app:main"
 pencil-cleaner-tui = "pencil_cleaner.tui:main"
+comics-tools = "pencil_cleaner.desktop_main:main"
 
 [tool.setuptools.packages.find]
 include = ["pencil_cleaner*"]

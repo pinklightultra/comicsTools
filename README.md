@@ -2,6 +2,24 @@
 
 comicsTools is two programs for cartoonists who print a penciled page, ink it by hand, and scan it back: [comic-cropper](comic-cropper/README.md) frames the panels in the browser, and [pencil_cleaner](pencil_cleaner/README.md) lightens the pencil scan for that print or strips the leftover gray out of the inked scan.
 
+## Download the app
+
+![comicsTools window after cleaning a test scan](docs/comics-tools.png)
+
+One command from a checkout of this repository installs the desktop window and the libraries it uses:
+
+```bash
+pip install "./pencil_cleaner[gui]"
+```
+
+Start it with `comics-tools`, or `python -m pencil_cleaner gui`. Drop a scan on the window or use Choose. The tasks are prep, clean, deskew, cut panels, printer test, and corner-mark cleanup. Defaults match the command-line flags, except Clean starts on `morphological`, which does not need `potrace`. The `clean` command still defaults to `vector`. Progress and errors show in the window, and a raster result is previewed next to the input.
+
+The command-line tools below still work.
+
+Prebuilt binaries for macOS, Windows, and Linux are built by [`.github/workflows/desktop.yml`](.github/workflows/desktop.yml) when a `v*` tag is pushed, and attached to the GitHub release for that tag. Publishing a release from the GitHub UI builds them too. The macOS app is not notarized. On Linux, if the window says the Qt platform plugin could not load, install the libraries it names. On Debian or Ubuntu that is `libegl1` and `libxkbcommon-x11-0`.
+
+Drawing the panel boxes is still [comic-cropper](comic-cropper/README.md), in the browser. The window does not replace that page.
+
 Toner is carbon, so dropping a color channel does not remove a laser ghost. The page images stay on the machine that opens them. `pencil_cleaner` is version 0.4.9. The cropper is a static page and has no package version.
 
 | Program | What you use it for |
@@ -76,11 +94,11 @@ Library calls are the functions exported from `pencil_cleaner`: `prep_pencils_fo
 
 ```
 usage: pencil_cleaner [-h]
-                      {prep,clean,marks,printer-test,deskew,panels,app,tui,gpu-info}
+                      {prep,clean,marks,printer-test,deskew,panels,app,gui,tui,gpu-info}
                       ...
 
 positional arguments:
-  {prep,clean,marks,printer-test,deskew,panels,app,tui,gpu-info}
+  {prep,clean,marks,printer-test,deskew,panels,app,gui,tui,gpu-info}
     prep                lighten a pencils-only scan for printing/inking
     clean               strip pencil ghosts from an inked scan
     marks               clean scans of pages printed with corner registration
@@ -90,6 +108,7 @@ positional arguments:
     deskew              deskew and/or flatten lighting (no pencil stripping)
     panels              cut comic panels into separate PNGs
     app                 launch the Gradio web app
+    gui                 open the desktop window
     tui                 launch the interactive terminal user interface (TUI)
     gpu-info            display NVIDIA GPU hardware and acceleration status
 

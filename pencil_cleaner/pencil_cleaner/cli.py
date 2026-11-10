@@ -13,6 +13,7 @@
     python -m pencil_cleaner deskew skewed.png -o straight.png
     python -m pencil_cleaner panels page.png -o panels/
     python -m pencil_cleaner app
+    python -m pencil_cleaner gui
 """
 from __future__ import annotations
 
@@ -123,6 +124,7 @@ def main(argv=None) -> int:
     p_panels.add_argument("--min-gutter", type=int, default=8, help="minimum gutter width in pixels")
 
     p_app = sub.add_parser("app", help="launch the Gradio web app")
+    sub.add_parser("gui", help="open the desktop window")
     # no required args — app launches immediately
 
     p_tui = sub.add_parser("tui", help="launch the interactive terminal user interface (TUI)")
@@ -154,6 +156,11 @@ def main(argv=None) -> int:
         from .app import main as app_main
 
         return app_main()
+
+    if args.command == "gui":
+        from .desktop_main import main as gui_main
+
+        return gui_main()
 
     if args.command == "prep":
         opacity = args.opacity
