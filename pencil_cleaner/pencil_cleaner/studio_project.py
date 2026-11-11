@@ -21,7 +21,7 @@ import numpy as np
 from PIL import Image, ImageDraw
 
 from .deskew import deskew_array, rotate_image
-from .mark_cleanup import ART, MARK_D, MARK_R, MARKS, PAGE_H, PAGE_W
+from .mark_cleanup import ART, MARK_D, MARK_INSET, MARK_R, PAGE_H, PAGE_W
 from .panels import find_panel_boxes
 from .printprep import PRESETS, _lighten_pencils
 from .printer_test import DEFAULT_LEVELS
@@ -101,6 +101,20 @@ class Placement:
     order: int = 0
 
 
+@dataclass
+class Page:
+    """One layout page. Zero means "use the project default" for that setting."""
+
+    id: str
+    name: str = ""
+    width_in: float = 0.0
+    height_in: float = 0.0
+    margin_in: float = 0.0
+    gutter_in: float = 0.0
+    columns: int = 0
+    rows: int = 0
+
+
 UNDO_LIMIT = 40
 
 
@@ -141,6 +155,7 @@ class Project:
     sources: list[SourcePage] = field(default_factory=list)
     panels: list[Panel] = field(default_factory=list)
     placements: list[Placement] = field(default_factory=list)
+    pages: list[Page] = field(default_factory=list)
     opacity: str = "light"
     columns: int = 2
     rows: int = 3
@@ -154,6 +169,7 @@ class Project:
         self._ghost_cache: dict = {}
         self._depth = 0
         self._next_id = 0  # ids are never handed out twice, even after a delete
+        self._ensure_pages(1)
 
     def source(self, source_id: str) -> SourcePage:
         for page in self.sources:
@@ -178,6 +194,211 @@ class Project:
                 return item
         raise KeyError(placement_id)
 
+    def page(self, index: int) -> Page:
+        return self.pages[int(index)]
+
+    def page_count(self) -> int:
+        return max(1, len(self.pages))
+
+    def page_name(self, index: int) -> str:
+        page = self.pages[int(index)] if 0 <= int(index) < len(self.pages) else None
+        return page.name if page and page.name else f"Page {int(index) + 1}"
+
+    def page_size(self, index: int) -> tuple[float, float]:
+        page = self.pages[int(index)] if 0 <= int(index) < len(self.pages) else None
+        width = (page.width_in if page and page.width_in else 0.0) or PAGE_W
+        height = (page.height_in if page and page.height_in else 0.0) or PAGE_H
+        return float(width), float(height)
+
+    def page_margin(self, index: int) -> float:
+        page = self.pages[int(index)] if 0 <= int(index) < len(self.pages) else None
+        return float((page.margin_in if page and page.margin_in else 0.0) or 0.75)
+
+    def page_gutter(self, index: int) -> float:
+        page = self.pages[int(index)] if 0 <= int(index) < len(self.pages) else None
+        return float((page.gutter_in if page and page.gutter_in else 0.0) or 0.12)
+
+    def page_columns(self, index: int) -> int:
+        page = self.pages[int(index)] if 0 <= int(index) < len(self.pages) else None
+        return max(1, int((page.columns if page and page.columns else 0) or self.columns))
+
+    def page_rows(self, index: int) -> int:
+        page = self.pages[int(index)] if 0 <= int(index) < len(self.pages) else None
+        return max(1, int((page.rows if page and page.rows else 0) or self.rows))
+
+    def page_slots(self, index: int) -> int:
+        return max(1, self.page_columns(index) * self.page_rows(index))
+
+    def _ensure_pages(self, count: int) -> None:
+        if not self.pages:
+            self.pages.append(Page(id=self._new_id("sheet")))
+        while len(self.pages) < max(1, int(count)):
+            self.pages.append(Page(id=self._new_id("sheet")))
+
+    def _shift_pages(self, from_index: int, delta: int) -> None:
+        """Move every placement on/after a page index by delta, for insert/delete/reorder."""
+        for placement in self.placements:
+            if placement.board_page >= from_index:
+                placement.board_page += delta
+
+    @undoable
+    def add_page(self, index: Optional[int] = None, name: str = "") -> Page:
+        """Insert a blank page at ``index`` (default: after the last page)."""
+        index = self.page_count() if index is None else max(0, min(int(index), self.page_count()))
+        self._shift_pages(index, 1)
+        page = Page(id=self._new_id("sheet"), name=name)
+        self.pages.insert(index, page)
+        return page
+
+    @undoable
+    def duplicate_page(self, index: int) -> Page:
+        """Copy a page and its placements; clips and source scans are shared, not copied."""
+        index = max(0, min(int(index), self.page_count() - 1))
+        source = self.page(index)
+        self._shift_pages(index + 1, 1)
+        page = Page(
+            id=self._new_id("sheet"),
+            name=source.name,
+            width_in=source.width_in,
+            height_in=source.height_in,
+            margin_in=source.margin_in,
+            gutter_in=source.gutter_in,
+            columns=source.columns,
+            rows=source.rows,
+        )
+        self.pages.insert(index + 1, page)
+        clones = []
+        for placement in self.placements_on(index):
+            clones.append(
+                Placement(
+                    id=self._new_id("use"),
+                    panel_id=placement.panel_id,
+                    board_page=index + 1,
+                    order=placement.order,
+                )
+            )
+        self.placements.extend(clones)
+        return page
+
+    @undoable
+    def delete_page(self, index: int) -> list[Placement]:
+        """Delete a page and the placements on it. The last page can't be deleted."""
+        index = int(index)
+        if self.page_count() <= 1:
+            raise ValueError("A project needs at least one page.")
+        if not 0 <= index < self.page_count():
+            raise IndexError(index)
+        removed = [p for p in self.placements if p.board_page == index]
+        self.placements = [p for p in self.placements if p.board_page != index]
+        self._shift_pages(index + 1, -1)
+        del self.pages[index]
+        return removed
+
+    @undoable
+    def move_page(self, from_index: int, to_index: int) -> None:
+        """Move a page (and everything on it) to another position."""
+        last = self.page_count() - 1
+        source, target = int(from_index), max(0, min(int(to_index), last))
+        if source == target:
+            return
+        self.pages.insert(target, self.pages.pop(source))
+        for placement in self.placements:
+            if placement.board_page == source:
+                placement.board_page = target
+            elif source < target and source < placement.board_page <= target:
+                placement.board_page -= 1
+            elif target < source and target <= placement.board_page < source:
+                placement.board_page += 1
+
+    @undoable
+    def reorder_pages(self, page_ids: Sequence[str]) -> None:
+        """Apply a new page order, given every page id once."""
+        page_ids = list(page_ids)
+        if len(page_ids) != len(self.pages) or set(page_ids) != {p.id for p in self.pages}:
+            raise ValueError("The new page order has to include every page once.")
+        old_pages = list(self.pages)
+        old_index = {page.id: index for index, page in enumerate(old_pages)}
+        page_for_placement = {}
+        for placement in self.placements:
+            page = old_pages[placement.board_page] if 0 <= placement.board_page < len(old_pages) else old_pages[0]
+            page_for_placement[placement.id] = page.id
+        new_index = {page_id: index for index, page_id in enumerate(page_ids)}
+        self.pages = [old_pages[old_index[page_id]] for page_id in page_ids]
+        for placement in self.placements:
+            placement.board_page = new_index[page_for_placement[placement.id]]
+
+    @undoable
+    def set_page_settings(
+        self,
+        index: int,
+        *,
+        name: Optional[str] = None,
+        width_in: Optional[float] = None,
+        height_in: Optional[float] = None,
+        margin_in: Optional[float] = None,
+        gutter_in: Optional[float] = None,
+        columns: Optional[int] = None,
+        rows: Optional[int] = None,
+        all_pages: bool = False,
+    ) -> None:
+        """Resize or re-grid one page, or every page, without changing the scans."""
+        index = int(index)
+        if not 0 <= index < len(self.pages):
+            raise IndexError(index)
+        if name is not None:
+            self.pages[index].name = str(name).strip()
+        targets = self.pages if all_pages else [self.pages[index]]
+        for page in targets:
+            if width_in is not None:
+                width = float(width_in)
+                if not 2.0 <= width <= 30.0:
+                    raise ValueError("Page width must be from 2 to 30 inches.")
+                page.width_in = width
+            if height_in is not None:
+                height = float(height_in)
+                if not 2.0 <= height <= 30.0:
+                    raise ValueError("Page height must be from 2 to 30 inches.")
+                page.height_in = height
+            if margin_in is not None:
+                margin = float(margin_in)
+                limit = min(page.width_in or PAGE_W, page.height_in or PAGE_H) / 2.0
+                if not 0.0 <= margin < limit:
+                    raise ValueError("Margins must fit inside the page.")
+                page.margin_in = margin
+            if gutter_in is not None:
+                gutter = float(gutter_in)
+                if not 0.0 <= gutter <= 3.0:
+                    raise ValueError("Gutter must be from 0 to 3 inches.")
+                page.gutter_in = gutter
+            if columns is not None:
+                count = int(columns)
+                if not 1 <= count <= 12:
+                    raise ValueError("Columns must be from 1 to 12.")
+                page.columns = count
+            if rows is not None:
+                count = int(rows)
+                if not 1 <= count <= 12:
+                    raise ValueError("Rows must be from 1 to 12.")
+                page.rows = count
+        changed_layout = (
+            columns is not None
+            or rows is not None
+            or width_in is not None
+            or height_in is not None
+            or margin_in is not None
+            or gutter_in is not None
+        )
+        if changed_layout:
+            pages_to_pack = range(self.page_count()) if all_pages else [index]
+            for page_index in pages_to_pack:
+                self.pack_page(page_index)
+
+    def pack_page(self, index: int) -> None:
+        """Fill a page's slots in reading order; extra placements stay after the slots."""
+        index = int(index)
+        for order, placement in enumerate(self.placements_on(index)):
+            placement.order = order
+
     def reading_order(self) -> list[Placement]:
         return sorted(self.placements, key=lambda p: (p.board_page, p.order, p.id))
 
@@ -188,9 +409,7 @@ class Project:
         return [p for p in self.reading_order() if p.panel_id == panel_id]
 
     def board_page_count(self) -> int:
-        if not self.placements:
-            return 1
-        return max(p.board_page for p in self.placements) + 1
+        return self.page_count()
 
     def catalog_id(self, placement: Placement) -> str:
         """Page and panel numbers are 1-based. Page 3, panel 2 is ``p003-02``."""
@@ -222,6 +441,19 @@ class Project:
 
     def slots_per_page(self) -> int:
         return max(1, int(self.columns) * int(self.rows))
+
+    def page_thumbnail(self, index: int, max_size: int = 150, dpi: int = 48) -> Image.Image:
+        """A small preview of one page, showing its own size and layout."""
+        page = self._compose_page(
+            self.placements_on(int(index)),
+            1.0,
+            packed=False,
+            finished=True,
+            page_index=int(index),
+            dpi_override=int(dpi),
+        )
+        page.thumbnail((int(max_size), int(max_size)), Image.Resampling.LANCZOS)
+        return page
 
     @undoable
     def import_files(self, paths: Sequence[PathLike]) -> list[str]:
@@ -297,6 +529,7 @@ class Project:
         """Put a library clip on a layout page. The same clip can be placed again."""
         self.panel(panel_id)
         board_page = max(0, int(board_page))
+        self._ensure_pages(board_page + 1)
         item = Placement(
             id=self._new_id("use"),
             panel_id=panel_id,
@@ -385,6 +618,7 @@ class Project:
         item = self.placement(placement_id)
         item.board_page = int(board_page)
         item.order = 10_000
+        self._ensure_pages(int(board_page) + 1)
         self._compact_orders()
 
     @undoable
@@ -398,13 +632,21 @@ class Project:
             item.board_page = int(page)
             item.order = counts.get(int(page), 0)
             counts[int(page)] = item.order + 1
+            self._ensure_pages(int(page) + 1)
 
     @undoable
     def pack_grid(self) -> None:
-        slots = self.slots_per_page()
-        for index, item in enumerate(self.reading_order()):
-            item.board_page = index // slots
-            item.order = index % slots
+        """Lay every clip out in reading order, using each page's own grid."""
+        page_index = 0
+        slot = 0
+        for item in self.reading_order():
+            while slot >= self.page_slots(page_index):
+                page_index += 1
+                slot = 0
+                self._ensure_pages(page_index + 1)
+            item.board_page = page_index
+            item.order = slot
+            slot += 1
 
     @undoable
     def link_takes(self, pencil_id: str, ink_id: str) -> None:
@@ -524,6 +766,8 @@ class Project:
             source.image_name,
             round(float(source.skew_degrees), 4),
             tuple(aligned.homography) if aligned else None,
+            json.dumps(aligned.offsets) if aligned else None,
+            tuple(aligned.target_size) if aligned else None,
         )
         cached = self._view_cache.get(key)
         if cached is not None:
@@ -613,13 +857,16 @@ class Project:
         opacity = _opacity_value(self.opacity)
         if panel_ids is not None:
             groups = _chunks(chosen, self.slots_per_page())
-            pages = [self._compose_page(group, opacity, packed=True) for group in groups]
+            pages = [
+                self._compose_page(group, opacity, packed=True, page_index=index)
+                for index, group in enumerate(groups)
+            ]
         else:
-            page_numbers = sorted({p.board_page for p in chosen})
+            page_numbers = sorted({p.board_page for p in chosen}) if board_pages is not None else list(range(self.page_count()))
             pages = []
             for number in page_numbers:
                 group = [p for p in chosen if p.board_page == number]
-                pages.append(self._compose_page(group, opacity, packed=False))
+                pages.append(self._compose_page(group, opacity, packed=False, page_index=number))
         if include_test:
             pages.append(render_printer_test_page(self.dpi))
         return pages
@@ -637,11 +884,17 @@ class Project:
         save_pages_as_pdf(pages, dest, resolution=float(self.dpi))
         return dest
 
-    def write_layout_image(self, board_page: int, dest: PathLike) -> Path:
+    def write_layout_image(self, board_page: int, dest: PathLike, finished: bool = False) -> Path:
         """Render one layout page to a PNG without changing the sources."""
         dest = Path(dest)
         dest.parent.mkdir(parents=True, exist_ok=True)
-        page = self._compose_page(self.placements_on(board_page), _opacity_value(self.opacity), packed=False)
+        page = self._compose_page(
+            self.placements_on(board_page),
+            _opacity_value(self.opacity),
+            packed=False,
+            finished=finished,
+            page_index=int(board_page),
+        )
         page.save(dest)
         return dest
 
@@ -664,7 +917,7 @@ class Project:
 
     def _payload(self) -> dict:
         return {
-            "version": 2,
+            "version": 3,
             "name": self.name,
             "opacity": self.opacity,
             "columns": self.columns,
@@ -674,6 +927,7 @@ class Project:
             "sources": [asdict(source) for source in self.sources],
             "panels": [asdict(panel) for panel in self.panels],
             "placements": [asdict(item) for item in self.placements],
+            "pages": [asdict(page) for page in self.pages],
             "next_id": self._next_id,
         }
 
@@ -693,7 +947,7 @@ class Project:
             raise FileNotFoundError(f"No project.json in {folder}")
         data = json.loads(path.read_text())
         version = data.get("version")
-        if version not in (1, 2):
+        if version not in (1, 2, 3):
             raise ValueError(f"Unsupported project version {version!r}.")
         project = cls(
             name=data.get("name") or "Untitled",
@@ -704,6 +958,7 @@ class Project:
             bleed=int(data.get("bleed") or 0),
             dpi=int(data.get("dpi") or 300),
         )
+        project.pages = []
         for raw in data.get("sources") or []:
             project.sources.append(SourcePage(**raw))
         if version == 1:
@@ -721,6 +976,13 @@ class Project:
                 project.panels.append(Panel(**{k: v for k, v in raw.items() if k in Panel.__dataclass_fields__}))
             for raw in data.get("placements") or []:
                 project.placements.append(Placement(**raw))
+        if version >= 3:
+            project.pages = [
+                Page(**{k: v for k, v in raw.items() if k in Page.__dataclass_fields__})
+                for raw in data.get("pages") or []
+            ]
+        needed = max([p.board_page for p in project.placements] + [0]) + 1
+        project._ensure_pages(needed if project.pages else max(1, needed))
         project._next_id = max(int(data.get("next_id") or 0), project._highest_id() + 1)
         catalog_path = folder / "catalog.json"
         if catalog_path.is_file():
@@ -753,11 +1015,12 @@ class Project:
         panel.updated_at = _now()
         return panel
 
+    @undoable
     def read_lettering(self, panel_id: str):
         from .ocr_text import recognize
 
         panel = self.panel(panel_id)
-        gray = self.view_gray(panel.source_id)
+        gray = self.view_gray(self.render_source(panel).id)
         crop = np.asarray(gray[panel.y0 : panel.y1, panel.x0 : panel.x1])
         if crop.size == 0:
             from .ocr_text import OcrResult
@@ -832,9 +1095,10 @@ class Project:
         written = []
         for placement in self.reading_order():
             panel = self.panel(placement.panel_id)
-            if panel.source_id not in cache:
-                cache[panel.source_id] = self.view_gray(panel.source_id)
-            gray = cache[panel.source_id]
+            source = self.render_source(panel)
+            if source.id not in cache:
+                cache[source.id] = self.view_gray(source.id)
+            gray = cache[source.id]
             crop = np.clip(gray[panel.y0 : panel.y1, panel.x0 : panel.x1], 0, 255).astype(np.uint8)
             if crop.size == 0:
                 crop = np.full((8, 8), 255, dtype=np.uint8)
@@ -865,10 +1129,13 @@ class Project:
             fmt = "tiff"
         if fmt not in ("pdf", "png", "tiff"):
             raise ValueError("Pages export as pdf, png, or tiff.")
-        numbers = sorted({p.board_page for p in self.placements})
-        if not numbers:
+        if not self.placements:
             raise ValueError("There is no page layout to export.")
-        pages = [self._compose_page(self.placements_on(n), 1.0, packed=False, finished=True) for n in numbers]
+        numbers = list(range(self.page_count()))
+        pages = [
+            self._compose_page(self.placements_on(n), 1.0, packed=False, finished=True, page_index=n)
+            for n in numbers
+        ]
         dest = Path(dest)
         if fmt == "pdf":
             dest.parent.mkdir(parents=True, exist_ok=True)
@@ -894,20 +1161,30 @@ class Project:
             return Image.new("L", (1, 1), 255)
         return Image.fromarray(np.clip(crop, 0, 255).astype(np.uint8), "L")
 
-    def _compose_page(self, placements: list[Placement], opacity: float, packed: bool, finished: bool = False) -> Image.Image:
-        dpi = int(self.dpi)
-        width, height = _px(PAGE_W, dpi), _px(PAGE_H, dpi)
+    def _compose_page(
+        self,
+        placements: list[Placement],
+        opacity: float,
+        packed: bool,
+        finished: bool = False,
+        page_index: int = 0,
+        dpi_override: Optional[int] = None,
+    ) -> Image.Image:
+        dpi = int(dpi_override or self.dpi)
+        width_in, height_in = self.page_size(page_index)
+        width, height = _px(width_in, dpi), _px(height_in, dpi)
         canvas = Image.new("L", (width, height), 255)
+        margin = self.page_margin(page_index)
         art = (
-            _px(ART[0], dpi),
-            _px(ART[1], dpi),
-            _px(ART[2], dpi),
-            _px(ART[3], dpi),
+            _px(margin, dpi),
+            _px(margin, dpi),
+            _px(width_in - margin, dpi),
+            _px(height_in - margin, dpi),
         )
-        gap = _px(0.12, dpi)
-        cols, rows = int(self.columns), int(self.rows)
-        cell_w = (art[2] - art[0] - gap * (cols - 1)) // cols
-        cell_h = (art[3] - art[1] - gap * (rows - 1)) // rows
+        gap = _px(self.page_gutter(page_index), dpi)
+        cols, rows = self.page_columns(page_index), self.page_rows(page_index)
+        cell_w = max(1, (art[2] - art[0] - gap * (cols - 1)) // cols)
+        cell_h = max(1, (art[3] - art[1] - gap * (rows - 1)) // rows)
         for index, placement in enumerate(placements):
             panel = self.panel(placement.panel_id)
             slot = index if packed else placement.order
@@ -921,8 +1198,18 @@ class Project:
             y = art[1] + row * (cell_h + gap) + (cell_h - fitted.height) // 2
             canvas.paste(fitted, (x, y))
         if not finished:
-            _draw_marks(canvas, dpi)
+            _draw_marks(canvas, dpi, width_in, height_in)
         return canvas
+
+    def overflow_pages(self) -> list[tuple[int, int, int]]:
+        """Pages with more placements than their grid holds: (page, placements, slots)."""
+        overflow = []
+        for index in range(self.page_count()):
+            count = len(self.placements_on(index))
+            slots = self.page_slots(index)
+            if count > slots:
+                overflow.append((index, count, slots))
+        return overflow
 
     def _ghost_crop(self, panel: Panel, opacity: float) -> Image.Image:
         # The paper-tone filter is most of an export's time (13.4 of 15.0 s on 3 real
@@ -1028,7 +1315,7 @@ class Project:
 
     def _highest_id(self) -> int:
         best = 0
-        for item in (*self.sources, *self.panels, *self.placements):
+        for item in (*self.sources, *self.panels, *self.placements, *self.pages):
             match = re.search(r"(\d+)$", item.id)
             if match:
                 best = max(best, int(match.group(1)))
@@ -1054,7 +1341,9 @@ class Project:
         self.sources = [SourcePage(**raw) for raw in state["sources"]]
         self.panels = [Panel(**raw) for raw in state["panels"]]
         self.placements = [Placement(**raw) for raw in state["placements"]]
+        self.pages = [Page(**raw) for raw in state.get("pages") or []]
         self._next_id = int(state.get("next_id") or 0)
+        self._ensure_pages(1)
 
     def _assign_sequential(self, ordered: list) -> None:
         by_page: dict[int, list[Panel]] = {}
@@ -1170,11 +1459,13 @@ def _fit(image: Image.Image, cell_w: int, cell_h: int) -> Image.Image:
     return image.resize(size, Image.Resampling.LANCZOS)
 
 
-def _draw_marks(canvas: Image.Image, dpi: int) -> None:
+def _draw_marks(canvas: Image.Image, dpi: int, page_w: float = PAGE_W, page_h: float = PAGE_H) -> None:
     draw = ImageDraw.Draw(canvas)
     half = max(1, _px(MARK_D, dpi) // 2)
     radius = max(1, _px(MARK_R, dpi))
-    for index, (mx, my) in enumerate(MARKS):
+    points = [(MARK_INSET, MARK_INSET), (page_w - MARK_INSET, MARK_INSET),
+              (page_w - MARK_INSET, page_h - MARK_INSET), (MARK_INSET, page_h - MARK_INSET)]
+    for index, (mx, my) in enumerate(points):
         cx, cy = _px(mx, dpi), _px(my, dpi)
         if index == 0:
             draw.rectangle([cx - half, cy - half, cx + half, cy + half], fill=0)

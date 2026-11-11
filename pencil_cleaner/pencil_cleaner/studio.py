@@ -9,8 +9,13 @@ from PySide6.QtGui import QAction, QColor, QDrag, QIcon, QImage, QKeySequence, Q
 from PySide6.QtWidgets import (
     QAbstractItemView,
     QApplication,
+    QCheckBox,
     QComboBox,
+    QDialog,
+    QDialogButtonBox,
+    QDoubleSpinBox,
     QFileDialog,
+    QFormLayout,
     QHBoxLayout,
     QLabel,
     QLineEdit,
@@ -31,6 +36,7 @@ from PySide6.QtWidgets import (
 )
 
 from . import desktop_jobs
+from .mark_cleanup import PAGE_H, PAGE_W
 from .studio_project import LAYOUTS, Project
 
 SCAN_FILTER = "Scans (*.png *.jpg *.jpeg *.tif *.tiff *.webp *.bmp *.pdf);;All files (*)"
@@ -376,6 +382,152 @@ class BinList(QListWidget):
         drag.exec(Qt.DropAction.CopyAction)
 
 
+class PageList(QListWidget):
+    """Page thumbnails. Drag one onto another position to move the whole page."""
+
+    reordered = Signal()
+
+    def __init__(self):
+        super().__init__()
+        self.setViewMode(QListWidget.ViewMode.IconMode)
+        self.setFlow(QListWidget.Flow.LeftToRight)
+        self.setWrapping(False)
+        self.setResizeMode(QListWidget.ResizeMode.Adjust)
+        self.setMovement(QListWidget.Movement.Snap)
+        self.setDragEnabled(True)
+        self.setAcceptDrops(True)
+        self.setDropIndicatorShown(True)
+        self.setDragDropMode(QAbstractItemView.DragDropMode.InternalMove)
+        self.setDefaultDropAction(Qt.DropAction.MoveAction)
+        self.setIconSize(QSize(88, 112))
+        self.setGridSize(QSize(104, 138))
+        self.setFixedHeight(142)
+        self.setSpacing(3)
+
+    def dropEvent(self, event) -> None:  # noqa: N802
+        super().dropEvent(event)
+        self.reordered.emit()
+
+
+class PageSettingsDialog(QDialog):
+    """Page size, margins, gutter, and grid for one page (or every page)."""
+
+    def __init__(self, project: Project, index: int, parent=None):
+        super().__init__(parent)
+        self.project = project
+        self.index = int(index)
+        self.setWindowTitle(f"Page settings — {project.page_name(self.index)}")
+        form = QFormLayout(self)
+        self.name_edit = QLineEdit(project.page(self.index).name)
+        form.addRow("Name", self.name_edit)
+
+        self.size_box = QComboBox()
+        self.size_box.addItem("US Letter (8.5 × 11 in)", (PAGE_W, PAGE_H))
+        self.size_box.addItem("A4 (8.27 × 11.69 in)", (8.27, 11.69))
+        self.size_box.addItem("Custom", (0.0, 0.0))
+        form.addRow("Page size", self.size_box)
+
+        current_w, current_h = project.page_size(self.index)
+        self.width = QDoubleSpinBox()
+        self.width.setRange(2.0, 30.0)
+        self.width.setDecimals(2)
+        self.width.setSuffix(" in")
+        self.height = QDoubleSpinBox()
+        self.height.setRange(2.0, 30.0)
+        self.height.setDecimals(2)
+        self.height.setSuffix(" in")
+        form.addRow("Width", self.width)
+        form.addRow("Height", self.height)
+
+        self.orientation = QComboBox()
+        self.orientation.addItems(["Portrait", "Landscape"])
+        form.addRow("Orientation", self.orientation)
+
+        self.margin = QDoubleSpinBox()
+        self.margin.setRange(0.0, 5.0)
+        self.margin.setSingleStep(0.05)
+        self.margin.setDecimals(2)
+        self.margin.setSuffix(" in")
+        self.margin.setValue(project.page_margin(self.index))
+        form.addRow("Margin", self.margin)
+
+        self.gutter = QDoubleSpinBox()
+        self.gutter.setRange(0.0, 3.0)
+        self.gutter.setSingleStep(0.01)
+        self.gutter.setDecimals(2)
+        self.gutter.setSuffix(" in")
+        self.gutter.setValue(project.page_gutter(self.index))
+        form.addRow("Gutter", self.gutter)
+
+        self.columns = QSpinBox()
+        self.columns.setRange(1, 12)
+        self.columns.setValue(project.page_columns(self.index))
+        self.rows = QSpinBox()
+        self.rows.setRange(1, 12)
+        self.rows.setValue(project.page_rows(self.index))
+        form.addRow("Columns", self.columns)
+        form.addRow("Rows", self.rows)
+
+        self.all_pages = QCheckBox("Apply size and layout to every page")
+        form.addRow(self.all_pages)
+        buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel)
+        buttons.accepted.connect(self.accept)
+        buttons.rejected.connect(self.reject)
+        form.addRow(buttons)
+
+        self._set_dimensions(current_w, current_h)
+        if abs(current_w - PAGE_W) < 0.01 and abs(current_h - PAGE_H) < 0.01:
+            self.size_box.setCurrentIndex(0)
+        elif abs(current_w - 8.27) < 0.01 and abs(current_h - 11.69) < 0.01:
+            self.size_box.setCurrentIndex(1)
+        else:
+            self.size_box.setCurrentIndex(2)
+        self._sync_orientation()
+        self.size_box.currentIndexChanged.connect(self._preset_changed)
+        self.orientation.currentIndexChanged.connect(self._orientation_changed)
+
+    def _set_dimensions(self, width: float, height: float) -> None:
+        for box, value in ((self.width, width), (self.height, height)):
+            box.blockSignals(True)
+            box.setValue(float(value))
+            box.blockSignals(False)
+
+    def _sync_orientation(self) -> None:
+        self.orientation.blockSignals(True)
+        self.orientation.setCurrentIndex(1 if self.width.value() > self.height.value() else 0)
+        self.orientation.blockSignals(False)
+
+    def _preset_changed(self, _index: int) -> None:
+        width, height = self.size_box.currentData()
+        if width and height:
+            self._set_dimensions(width, height)
+            self._sync_orientation()
+
+    def _orientation_changed(self, _index: int) -> None:
+        width, height = self.width.value(), self.height.value()
+        landscape = self.orientation.currentIndex() == 1
+        if (landscape and width < height) or (not landscape and width > height):
+            self._set_dimensions(height, width)
+
+    def accept(self) -> None:  # noqa: N802
+        try:
+            self.project.set_page_settings(
+                self.index,
+                name=self.name_edit.text(),
+                width_in=self.width.value(),
+                height_in=self.height.value(),
+                margin_in=self.margin.value(),
+                gutter_in=self.gutter.value(),
+                columns=self.columns.value(),
+                rows=self.rows.value(),
+                all_pages=self.all_pages.isChecked(),
+            )
+        except (IndexError, ValueError) as exc:
+            QMessageBox.warning(self, "Page settings", str(exc))
+            return
+        super().accept()
+
+
 class StudioWindow(QMainWindow):
     def __init__(self):
         super().__init__()
@@ -388,6 +540,9 @@ class StudioWindow(QMainWindow):
         self._thread: _Call | None = None
         self._boards: list[tuple[int, BoardList]] = []
         self._syncing = False
+        self._syncing_pages = False
+        self._page_thumbs: dict = {}
+        self._page_thumb_sig = None
 
         root = QWidget()
         self.setCentralWidget(root)
@@ -483,6 +638,25 @@ class StudioWindow(QMainWindow):
         right = QWidget()
         right_layout = QVBoxLayout(right)
         right_layout.setContentsMargins(0, 0, 0, 0)
+
+        right_layout.addWidget(QLabel("Pages. Drag a thumbnail to move a page."))
+        self.page_list = PageList()
+        self.page_list.currentRowChanged.connect(self._page_selected)
+        self.page_list.reordered.connect(self._after_page_drag)
+        right_layout.addWidget(self.page_list)
+        page_buttons = QHBoxLayout()
+        for label, slot in (
+            ("Add", self._add_page),
+            ("Duplicate", self._duplicate_page),
+            ("Delete", self._delete_page),
+            ("Settings…", self._page_settings),
+            ("↑", lambda: self._move_page(-1)),
+            ("↓", lambda: self._move_page(1)),
+        ):
+            page_buttons.addWidget(self._button(label, slot))
+        page_buttons.addStretch(1)
+        right_layout.addLayout(page_buttons)
+
         filter_row = QHBoxLayout()
         self.tag_filter = QLineEdit()
         self.tag_filter.setPlaceholderText("Filter by tag")
@@ -682,7 +856,22 @@ class StudioWindow(QMainWindow):
         self.status.setText(f"Saved {path}")
         return True
 
+    def _check_overflow(self) -> bool:
+        overflow = self.project.overflow_pages()
+        if not overflow:
+            return True
+        lines = [f"Page {index + 1}: {count} panels, but its grid fits {slots}." for index, count, slots in overflow]
+        QMessageBox.warning(
+            self,
+            "Page too full",
+            "\n".join(lines)
+            + "\n\nAdd a page, move panels, or enlarge the grid in Page settings before exporting.",
+        )
+        return False
+
     def _export(self) -> None:
+        if not self._check_overflow():
+            return
         path, _ = QFileDialog.getSaveFileName(self, "Ghost PDF", self._in_dir("exports", "ghost.pdf"), "PDF (*.pdf)")
         if not path:
             return
@@ -989,7 +1178,118 @@ class StudioWindow(QMainWindow):
             gray=self.project.view_gray(source_id),
         )
 
-    def _refresh_board(self) -> None:
+    def _selected_page(self) -> int:
+        row = self.page_list.currentRow() if hasattr(self, "page_list") else -1
+        return max(0, min(int(row), self.project.page_count() - 1)) if row >= 0 else 0
+
+    def _refresh_pages(self, select: int | None = None) -> None:
+        if not hasattr(self, "page_list"):
+            return
+        self._syncing_pages = True
+        self.page_list.blockSignals(True)
+        try:
+            chosen = self._selected_page() if select is None else int(select)
+            signature = self.project.state_signature()
+            if signature != self._page_thumb_sig:
+                self._page_thumbs = {}
+                self._page_thumb_sig = signature
+            self.page_list.clear()
+            for index in range(self.project.page_count()):
+                page = self.project.page(index)
+                width, height = self.project.page_size(index)
+                label = self.project.page_name(index)
+                item = QListWidgetItem(label)
+                item.setData(Qt.ItemDataRole.UserRole, page.id)
+                pixmap = self._page_thumbs.get(index)
+                if pixmap is None:
+                    pixmap = _pixmap_from_gray(np.asarray(self.project.page_thumbnail(index)))
+                    self._page_thumbs[index] = pixmap
+                item.setIcon(QIcon(pixmap))
+                item.setToolTip(
+                    f"{label}\n{width:.2f} × {height:.2f} in\n"
+                    f"{self.project.page_columns(index)} × {self.project.page_rows(index)} grid"
+                )
+                self.page_list.addItem(item)
+            if self.page_list.count():
+                self.page_list.setCurrentRow(max(0, min(chosen, self.page_list.count() - 1)))
+        finally:
+            self.page_list.blockSignals(False)
+            self._syncing_pages = False
+
+    def _page_selected(self, row: int) -> None:
+        if self._syncing_pages or row < 0:
+            return
+        width, height = self.project.page_size(row)
+        self.status.setText(
+            f"{self.project.page_name(row)}: {width:.2f} × {height:.2f} in, "
+            f"{self.project.page_columns(row)} × {self.project.page_rows(row)} grid."
+        )
+
+    def _after_page_drag(self) -> None:
+        if self._syncing_pages:
+            return
+        ids = [self.page_list.item(row).data(Qt.ItemDataRole.UserRole) for row in range(self.page_list.count())]
+        current = self.page_list.currentRow()
+        current_id = self.page_list.item(current).data(Qt.ItemDataRole.UserRole) if current >= 0 else None
+        try:
+            self.project.reorder_pages(ids)
+        except ValueError as exc:
+            self.status.setText(str(exc))
+            self._refresh_board()
+            return
+        selected = ids.index(current_id) if current_id in ids else 0
+        self._refresh_board(selected)
+        self.status.setText(f"Moved the page to position {selected + 1}.")
+
+    def _add_page(self) -> None:
+        index = self._selected_page()
+        self.project.add_page(index + 1)
+        self._refresh_board(index + 1)
+        self.status.setText(f"Added a blank page at position {index + 2}.")
+
+    def _duplicate_page(self) -> None:
+        index = self._selected_page()
+        self.project.duplicate_page(index)
+        self._refresh_board(index + 1)
+        self.status.setText(f"Duplicated {self.project.page_name(index)}.")
+
+    def _delete_page(self) -> None:
+        index = self._selected_page()
+        if self.project.page_count() <= 1:
+            self.status.setText("A project needs at least one page.")
+            return
+        count = len(self.project.placements_on(index))
+        answer = QMessageBox.question(
+            self,
+            "Delete page?",
+            f"Delete {self.project.page_name(index)}"
+            + (f" and its {count} placed panel(s)?" if count else "?"),
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.Cancel,
+            QMessageBox.StandardButton.Cancel,
+        )
+        if answer != QMessageBox.StandardButton.Yes:
+            return
+        self.project.delete_page(index)
+        self._refresh_board(max(0, min(index, self.project.page_count() - 1)))
+        self.status.setText(f"Deleted page {index + 1}. The clips stay in the library.")
+
+    def _move_page(self, steps: int) -> None:
+        index = self._selected_page()
+        target = max(0, min(index + int(steps), self.project.page_count() - 1))
+        if target == index:
+            return
+        self.project.move_page(index, target)
+        self._refresh_board(target)
+        self.status.setText(f"Moved the page to position {target + 1}.")
+
+    def _page_settings(self) -> None:
+        index = self._selected_page()
+        dialog = PageSettingsDialog(self.project, index, self)
+        if dialog.exec():
+            self._refresh_board(index)
+            self.status.setText(f"Updated {self.project.page_name(index)}.")
+
+    def _refresh_board(self, page_select: int | None = None) -> None:
         self._syncing = True
         while self.board_layout.count():
             item = self.board_layout.takeAt(0)
@@ -997,10 +1297,16 @@ class StudioWindow(QMainWindow):
             if widget is not None:
                 widget.deleteLater()
         self._boards = []
-        pages = self.project.board_page_count()
+        pages = self.project.page_count()
         # One empty page at the end so a panel can be dragged onto a new page.
         for page_index in range(pages + 1):
-            label = QLabel(f"Page {page_index + 1}")
+            if page_index < pages:
+                label = QLabel(
+                    f"{self.project.page_name(page_index)}  ·  "
+                    f"{self.project.page_columns(page_index)}×{self.project.page_rows(page_index)}"
+                )
+            else:
+                label = QLabel("＋ New page (drop a clip here)")
             listing = BoardList(page_index)
             listing.changed.connect(self._queue_sync)
             listing.panel_dropped.connect(self._place_from_bin)
@@ -1016,6 +1322,7 @@ class StudioWindow(QMainWindow):
             self._boards.append((page_index, listing))
         self.board_layout.addStretch(1)
         self._syncing = False
+        self._refresh_pages(page_select)
         self._refresh_catalog()
 
     def _queue_sync(self) -> None:
@@ -1060,6 +1367,13 @@ class StudioWindow(QMainWindow):
         placement = self.project.placement(placement_id)
         panel = self.project.panel(placement.panel_id)
         self._placement_id = placement.id
+        if hasattr(self, "page_list") and widget.page_index < self.project.page_count():
+            self._syncing_pages = True
+            self.page_list.blockSignals(True)
+            self.page_list.setCurrentRow(widget.page_index)
+            self.page_list.blockSignals(False)
+            self._syncing_pages = False
+            self.page_list.scrollToItem(self.page_list.item(widget.page_index))
         pid = panel.id
         self.canvas.selected_id = pid
         if panel.source_id != self._source_id:
@@ -1115,8 +1429,6 @@ class StudioWindow(QMainWindow):
     def _page_array(self, source_id: str) -> np.ndarray:
         cache = getattr(self, "_arrays", {})
         if source_id not in cache:
-            from ._pageio import load_gray
-
             cache[source_id] = np.clip(self.project.view_gray(source_id), 0, 255).astype(np.uint8)
             self._arrays = cache
         return cache[source_id]
@@ -1188,6 +1500,8 @@ class StudioWindow(QMainWindow):
         self._load_meta(panel_id)
 
     def _place_from_bin(self, board_page: int, panel_id: str) -> None:
+        if board_page >= self.project.page_count():
+            self.project.add_page(board_page)
         placed = self.project.place(panel_id, board_page)
         self._placement_id = placed.id
         self._refresh_board()
@@ -1294,6 +1608,13 @@ class StudioWindow(QMainWindow):
         page_index = 0
         if self._placement_id:
             page_index = self.project.placement(self._placement_id).board_page
+        for index, count, slots in self.project.overflow_pages():
+            if index == page_index:
+                self.status.setText(
+                    f"Page {index + 1} has {count} panels but its grid fits {slots}. "
+                    "Add a page or adjust Page settings before exporting."
+                )
+                return
         try:
             dest = self.project.write_layout_image(page_index, path)
         except Exception as exc:
@@ -1348,6 +1669,16 @@ class StudioWindow(QMainWindow):
         act(edit_menu, "Move later", lambda: self._nudge(1), "Ctrl+]")
         act(edit_menu, "Move to previous page", lambda: self._shift_page(-1), "Ctrl+PgUp")
         act(edit_menu, "Move to next page", lambda: self._shift_page(1), "Ctrl+PgDown")
+
+        page_menu = bar.addMenu("&Page")
+        act(page_menu, "Add blank page", self._add_page)
+        act(page_menu, "Duplicate page", self._duplicate_page)
+        act(page_menu, "Delete page", self._delete_page)
+        page_menu.addSeparator()
+        act(page_menu, "Move page earlier", lambda: self._move_page(-1))
+        act(page_menu, "Move page later", lambda: self._move_page(1))
+        page_menu.addSeparator()
+        act(page_menu, "Page settings…", self._page_settings)
 
         tools_menu = bar.addMenu("&Tools")
         for task, label, kind in TOOLS:
@@ -1514,6 +1845,8 @@ class StudioWindow(QMainWindow):
     def _export_pages(self) -> None:
         if not self.project.placements:
             self.status.setText("There is no page layout to export.")
+            return
+        if not self._check_overflow():
             return
         path, chosen = QFileDialog.getSaveFileName(
             self,

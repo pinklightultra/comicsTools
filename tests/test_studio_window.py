@@ -148,6 +148,40 @@ class TestStudioWindow(unittest.TestCase):
         self.window._undo()
         self.assertEqual(self.window.layout_box.currentData(), (2, 3))
 
+    def test_page_strip_tracks_add_move_duplicate_and_delete(self):
+        self._import()
+        self.assertEqual(self.window.page_list.count(), self.window.project.page_count())
+        self.window.page_list.setCurrentRow(0)
+        self.window._add_page()
+        self.assertEqual(self.window.page_list.count(), 2)
+        first = self.window.project.page(0).id
+        self.window.page_list.setCurrentRow(0)
+        self.window._move_page(1)
+        self.assertEqual(self.window.project.page(1).id, first)
+        self.window._duplicate_page()
+        self.assertEqual(self.window.page_list.count(), 3)
+        with mock.patch.object(QMessageBox, "question", return_value=QMessageBox.StandardButton.Yes):
+            self.window._delete_page()
+        self.assertEqual(self.window.page_list.count(), 2)
+        self.assertEqual(self.window.page_list.count(), self.window.project.page_count())
+
+    def test_page_settings_dialog_shows_the_selected_page(self):
+        from pencil_cleaner.studio import PageSettingsDialog
+
+        self.window.project.set_page_settings(
+            0, name="Cover", width_in=6.0, height_in=9.0, margin_in=0.5, columns=1, rows=2
+        )
+        dialog = PageSettingsDialog(self.window.project, 0, self.window)
+        try:
+            self.assertEqual(dialog.name_edit.text(), "Cover")
+            self.assertAlmostEqual(dialog.width.value(), 6.0)
+            self.assertAlmostEqual(dialog.height.value(), 9.0)
+            self.assertEqual(dialog.columns.value(), 1)
+            self.assertEqual(dialog.rows.value(), 2)
+            self.assertEqual(dialog.orientation.currentText(), "Portrait")
+        finally:
+            dialog.close()
+
     def test_every_menu_has_its_shortcut(self):
         keys = {}
         for menu_action in self.window.menuBar().actions():

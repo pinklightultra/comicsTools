@@ -61,7 +61,7 @@ class TestStudioProject(unittest.TestCase):
             self.assertEqual(len(loaded.panels), 2)
             self.assertEqual(loaded.panels[0].box(), project.panels[0].box())
             self.assertTrue((saved / "project.json").is_file())
-            self.assertEqual(json.loads((saved / "project.json").read_text())["version"], 2)
+            self.assertEqual(json.loads((saved / "project.json").read_text())["version"], 3)
             self.assertEqual(scan.read_bytes(), project.image_path(page.id).read_bytes())
             self.assertEqual(len(loaded.placements), 2)
 
