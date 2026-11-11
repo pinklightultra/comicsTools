@@ -58,6 +58,19 @@ jobs:
             --hidden-import pymupdf \
             comics_tools_entry.py
 
+      - name: Smoke test Linux
+        if: runner.os == 'Linux'
+        run: QT_QPA_PLATFORM=offscreen pencil_cleaner/dist/comics-tools --selftest
+
+      - name: Smoke test macOS
+        if: runner.os == 'macOS'
+        run: QT_QPA_PLATFORM=offscreen "pencil_cleaner/dist/comics-tools.app/Contents/MacOS/comics-tools" --selftest
+
+      - name: Smoke test Windows
+        if: runner.os == 'Windows'
+        shell: bash
+        run: QT_QPA_PLATFORM=offscreen ./pencil_cleaner/dist/comics-tools/comics-tools.exe --selftest
+
       - name: Pack Linux
         if: runner.os == 'Linux'
         run: tar -C pencil_cleaner/dist -czf comics-tools-linux.tar.gz comics-tools

@@ -1457,7 +1457,9 @@ def clamp_box(x0: int, y0: int, x1: int, y1: int, width: int, height: int) -> Bo
     return x0, y0, x1, y1
 
 
-def _clean_tags(tags: Sequence[str]) -> list[str]:
+def _clean_tags(tags) -> list[str]:
+    if isinstance(tags, str):
+        tags = tags.split(",")
     cleaned = []
     seen = set()
     for raw in tags:

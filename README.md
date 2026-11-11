@@ -61,7 +61,7 @@ Prebuilt binaries for macOS, Windows, and Linux are built by [`.github/workflows
 
 Not in this window yet: registering an ink scan on the corner marks so it lines up with the pencil crop, a live ink-cleanup slider, SVG trace, and SVG export. Tools > Clean an ink scan runs the cleanup with its default settings; `pencil-cleaner clean` has every option. The macOS and Windows builds are not signed, so the first launch shows a security warning.
 
-Toner is carbon, so dropping a color channel does not remove a laser ghost. The page images stay on the machine that opens them. `pencil_cleaner` is version 0.6.0. The cropper is a static page and has no package version.
+Toner is carbon, so dropping a color channel does not remove a laser ghost. The page images stay on the machine that opens them. `pencil_cleaner` is version 0.6.1. The cropper is a static page and has no package version.
 
 | Program | What you use it for |
 | --- | --- |

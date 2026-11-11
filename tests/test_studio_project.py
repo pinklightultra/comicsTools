@@ -349,6 +349,16 @@ class TestStudioProject(unittest.TestCase):
             leftovers = [p.name for p in root.iterdir() if p.name.endswith(".tmp")]
             self.assertEqual(leftovers, [], "the temp catalog file is gone after the write")
 
+    def test_a_plain_string_of_tags_splits_on_commas(self):
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            scan = root / "page.png"
+            _two_panel_page(scan)
+            project = Project()
+            project.import_files([scan])
+            project.set_meta(project.panels[0].id, tags="cover, hero, cover")
+            self.assertEqual(project.panel(project.panels[0].id).tags, ["cover", "hero"])
+
     def test_lettering_is_a_read_then_an_undoable_apply(self):
         with tempfile.TemporaryDirectory() as td:
             root = Path(td)
