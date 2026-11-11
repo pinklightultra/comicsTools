@@ -60,7 +60,7 @@ jobs:
 
       - name: Smoke test Linux
         if: runner.os == 'Linux'
-        run: QT_QPA_PLATFORM=offscreen pencil_cleaner/dist/comics-tools --selftest
+        run: QT_QPA_PLATFORM=offscreen pencil_cleaner/dist/comics-tools/comics-tools --selftest
 
       - name: Smoke test macOS
         if: runner.os == 'macOS'
