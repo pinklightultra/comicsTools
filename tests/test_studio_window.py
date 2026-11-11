@@ -222,6 +222,22 @@ class TestStudioWindow(unittest.TestCase):
         self.assertEqual(self.window.project.panel(panel_id).ocr_text, "DOCK GATE")
         self.assertEqual(self.window.ocr_edit.toPlainText(), "DOCK GATE")
 
+    def test_bw_controls_drive_the_project_and_follow_history(self):
+        self._import()
+        self.window.bw_check.setChecked(True)
+        self.assertTrue(self.window.project.bw)
+        self.assertTrue(self.window.bw_threshold.isEnabled())
+        self.window.bw_threshold.setValue(200)
+        self.assertEqual(self.window.project.bw_threshold, 200)
+        self.window._undo()
+        self.assertEqual(self.window.project.bw_threshold, 180)
+        self.assertEqual(self.window.bw_threshold.value(), 180)
+        self.assertTrue(self.window.bw_check.isChecked())
+        self.window._undo()
+        self.assertFalse(self.window.project.bw)
+        self.assertFalse(self.window.bw_check.isChecked())
+        self.assertFalse(self.window.bw_threshold.isEnabled())
+
     def test_every_menu_has_its_shortcut(self):
         keys = {}
         for menu_action in self.window.menuBar().actions():

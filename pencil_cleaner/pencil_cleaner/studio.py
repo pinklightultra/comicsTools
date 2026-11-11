@@ -590,6 +590,17 @@ class StudioWindow(QMainWindow):
         self.bleed.setValue(12)
         self.bleed.valueChanged.connect(self._set_bleed)
         controls.addWidget(self.bleed)
+        self.bw_check = QCheckBox("Pure B&W")
+        self.bw_check.setToolTip("Finished exports hold only black and white, for a laser printer.")
+        self.bw_check.toggled.connect(self._set_bw)
+        controls.addWidget(self.bw_check)
+        self.bw_threshold = QSpinBox()
+        self.bw_threshold.setRange(1, 254)
+        self.bw_threshold.setValue(180)
+        self.bw_threshold.setToolTip("Pixels at or below this gray become black. Lower keeps more pencil.")
+        self.bw_threshold.valueChanged.connect(self._set_bw_threshold)
+        self.bw_threshold.setEnabled(False)
+        controls.addWidget(self.bw_threshold)
         controls.addStretch(1)
         layout.addLayout(controls)
 
@@ -815,6 +826,7 @@ class StudioWindow(QMainWindow):
         self.bleed.blockSignals(True)
         self.bleed.setValue(project.bleed)
         self.bleed.blockSignals(False)
+        self._sync_bw_controls()
         self._select_layout(project.columns, project.rows)
         self._fill_sources(select=project.sources[0].id if project.sources else None)
         self._load_meta(None)
@@ -1035,6 +1047,7 @@ class StudioWindow(QMainWindow):
         self.bleed.blockSignals(True)
         self.bleed.setValue(project.bleed)
         self.bleed.blockSignals(False)
+        self._sync_bw_controls()
         self._select_layout(project.columns, project.rows)
         ids = {s.id for s in project.sources}
         keep = self._source_id if self._source_id in ids else (project.sources[0].id if project.sources else None)
@@ -1119,6 +1132,30 @@ class StudioWindow(QMainWindow):
             self.project.set_settings(bleed=int(value))
         if self._source_id:
             self._show_source(self._source_id)
+
+    def _sync_bw_controls(self) -> None:
+        self.bw_check.blockSignals(True)
+        self.bw_check.setChecked(self.project.bw)
+        self.bw_check.blockSignals(False)
+        self.bw_threshold.blockSignals(True)
+        self.bw_threshold.setValue(int(self.project.bw_threshold))
+        self.bw_threshold.blockSignals(False)
+        self.bw_threshold.setEnabled(bool(self.project.bw))
+
+    def _set_bw(self, checked: bool) -> None:
+        if bool(checked) != self.project.bw:
+            self.project.set_settings(bw=bool(checked))
+        self.bw_threshold.setEnabled(bool(checked))
+        self._refresh_pages()
+        self.status.setText(
+            "Finished pages export as pure black and white." if checked else "Finished pages export as pencil gray."
+        )
+
+    def _set_bw_threshold(self, value: int) -> None:
+        if int(value) != self.project.bw_threshold:
+            self.project.set_settings(bw_threshold=int(value))
+        self._refresh_pages()
+        self.status.setText(f"Black and white threshold is {int(value)}.")
 
     def _set_layout(self) -> None:
         cols, rows = self.layout_box.currentData()

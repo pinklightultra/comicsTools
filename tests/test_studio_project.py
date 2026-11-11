@@ -280,6 +280,33 @@ class TestStudioProject(unittest.TestCase):
             self.assertEqual(project.render_source(project.panel(clip.id)).id, ink_id)
             self.assertEqual(pencil.read_bytes(), project.image_path(project.sources[0].id).read_bytes())
 
+    def test_pure_bw_export_thresholds_only_finished_pages(self):
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            scan = root / "page.png"
+            _two_panel_page(scan)
+            project = Project()
+            project.import_files([scan])
+            gray = project._compose_page(
+                project.placements_on(0), 1.0, packed=False, finished=True, dpi_override=72
+            )
+            values = set(np.asarray(gray).ravel().tolist())
+            self.assertTrue(any(value not in (0, 255) for value in values))
+            project.set_settings(bw=True, bw_threshold=200)
+            bw = project._compose_page(project.placements_on(0), 1.0, packed=False, finished=True, dpi_override=72)
+            self.assertLessEqual(set(np.asarray(bw).ravel().tolist()), {0, 255})
+            ghost = project._compose_page(project.placements_on(0), 1.0, packed=False, finished=False, dpi_override=72)
+            self.assertFalse(set(np.asarray(ghost).ravel().tolist()) <= {0, 255})
+            saved = project.save(root / "proj")
+            again = Project.load(saved)
+            self.assertTrue(again.bw)
+            self.assertEqual(again.bw_threshold, 200)
+            for bad in (0, 255, 300):
+                with self.assertRaises(ValueError):
+                    project.set_settings(bw_threshold=bad)
+            self.assertTrue(project.undo())
+            self.assertFalse(project.bw)
+
     def test_lettering_is_a_read_then_an_undoable_apply(self):
         with tempfile.TemporaryDirectory() as td:
             root = Path(td)

@@ -1,6 +1,5 @@
 """Unit tests for pencil_cleaner module in comicsTools."""
 
-import os
 import sys
 import tempfile
 import unittest

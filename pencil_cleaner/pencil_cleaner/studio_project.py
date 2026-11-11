@@ -160,6 +160,8 @@ class Project:
     columns: int = 2
     rows: int = 3
     bleed: int = 12
+    bw: bool = False
+    bw_threshold: int = 180
     dpi: int = 300
 
     def __post_init__(self) -> None:
@@ -807,6 +809,8 @@ class Project:
         rows: Optional[int] = None,
         bleed: Optional[int] = None,
         dpi: Optional[int] = None,
+        bw: Optional[bool] = None,
+        bw_threshold: Optional[int] = None,
     ) -> None:
         """Change print settings as one undoable step. Values are checked first."""
         if opacity is not None:
@@ -822,12 +826,20 @@ class Project:
             raise ValueError("Bleed must be from 0 to 300 px.")
         if dpi is not None and not 72 <= int(dpi) <= 1200:
             raise ValueError("DPI must be from 72 to 1200.")
+        if bw is not None and not isinstance(bw, bool):
+            raise ValueError("Black and white is on or off.")
+        if bw_threshold is not None and not 1 <= int(bw_threshold) <= 254:
+            raise ValueError("The black and white threshold must be from 1 to 254.")
         if opacity is not None:
             self.opacity = opacity
         if bleed is not None:
             self.bleed = int(bleed)
         if dpi is not None:
             self.dpi = int(dpi)
+        if bw is not None:
+            self.bw = bool(bw)
+        if bw_threshold is not None:
+            self.bw_threshold = int(bw_threshold)
         if grid != (self.columns, self.rows):
             self.columns, self.rows = grid
             if self.placements:
@@ -930,6 +942,8 @@ class Project:
             "panels": [asdict(panel) for panel in self.panels],
             "placements": [asdict(item) for item in self.placements],
             "pages": [asdict(page) for page in self.pages],
+            "bw": self.bw,
+            "bw_threshold": self.bw_threshold,
             "next_id": self._next_id,
         }
 
@@ -959,6 +973,8 @@ class Project:
             rows=int(data.get("rows") or 3),
             bleed=int(data.get("bleed") or 0),
             dpi=int(data.get("dpi") or 300),
+            bw=bool(data.get("bw")),
+            bw_threshold=int(data.get("bw_threshold") or 180),
         )
         project.pages = []
         for raw in data.get("sources") or []:
@@ -1202,6 +1218,9 @@ class Project:
             x = art[0] + col * (cell_w + gap) + (cell_w - fitted.width) // 2
             y = art[1] + row * (cell_h + gap) + (cell_h - fitted.height) // 2
             canvas.paste(fitted, (x, y))
+        if finished and self.bw:
+            threshold = int(self.bw_threshold)
+            canvas = canvas.point(lambda value: 0 if value <= threshold else 255)
         if not finished:
             _draw_marks(canvas, dpi, width_in, height_in)
         return canvas
@@ -1343,6 +1362,8 @@ class Project:
         self.rows = int(state["rows"])
         self.bleed = int(state["bleed"])
         self.dpi = int(state["dpi"])
+        self.bw = bool(state.get("bw"))
+        self.bw_threshold = int(state.get("bw_threshold") or 180)
         self.sources = [SourcePage(**raw) for raw in state["sources"]]
         self.panels = [Panel(**raw) for raw in state["panels"]]
         self.placements = [Placement(**raw) for raw in state["placements"]]
