@@ -26,6 +26,8 @@ The window is a clip bin for comic panels. Import copies a scan into the project
 
 The library lists every clip, with a thumbnail, tags, notes, and lettering. Filter by tag, or search the notes and the lettering. Drag a clip onto a page. The same clip can be on more than one page. Rearranging a page only changes the layout. Remove from page leaves the clip in the library. Editing the crop updates every place that clip is used. Undo and Redo cover those layout and crop edits.
 
+Review passes every clip one at a time: the crop as it will print fills the left, the page it was cut from shows beside it with the crop marked in red, and the counter says how far along you are. Left and Right arrow keys step, `E` hands the clip to the scan for crop editing, `I` flips it between pencil and ink, `D` deletes it after a confirm. Every change is a normal undo step, and nothing writes the scan.
+
 A layout number follows the page. Page 3, panel 2 is `p003-02`, and the number is assigned again when the layout changes. The clip’s own id does not change.
 
 The Pages strip shows every layout page as a thumbnail. Drag a thumbnail to move that page, or use Add, Duplicate, Delete, Move earlier, and Move later. Page settings sets the page name, size (US Letter, A4, or a custom width and height), orientation, margins, gutter, and its own rows and columns. Pages can differ from one another. Resizing a page or changing its grid reflows that page; the scans and clips are not changed. Page order and per-page settings are saved in `project.json`, and older projects open with their current layout as the defaults.

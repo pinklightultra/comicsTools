@@ -238,6 +238,65 @@ class TestStudioWindow(unittest.TestCase):
         self.assertFalse(self.window.bw_check.isChecked())
         self.assertFalse(self.window.bw_threshold.isEnabled())
 
+    def test_review_pass_steps_flips_and_hands_off_to_the_canvas(self):
+        self._import()
+        panels = self.window.project.panels
+        self.assertGreaterEqual(len(panels), 2)
+        from pencil_cleaner.studio import ReviewDialog
+
+        dialog = ReviewDialog(self.window.project, self.window)
+        try:
+            self.assertEqual(dialog.counter.text(), "Clip 1 of 2")
+            self.assertFalse(dialog.preview.pixmap().isNull())
+            self.assertFalse(dialog.context.pixmap().isNull())
+            dialog.step(1)
+            self.assertEqual(dialog.counter.text(), "Clip 2 of 2")
+            dialog.step(-1)
+            stage = self.window.project.panel(dialog.ids[0]).stage
+            dialog.flip_stage()
+            self.assertEqual(
+                self.window.project.panel(dialog.ids[0]).stage,
+                "ink" if stage == "pencil" else "pencil",
+            )
+            dialog.flip_stage()
+            self.assertEqual(self.window.project.panel(dialog.ids[0]).stage, stage)
+            current = dialog.ids[dialog.index]
+            dialog.edit_on_canvas()
+            self.assertEqual(self.window.canvas.selected_id, current)
+        finally:
+            dialog.close()
+        self.assertEqual(len(self.window.project.panels), 2)
+
+    def test_review_pass_deletes_a_clip_and_steps_on(self):
+        self._import()
+        from pencil_cleaner.studio import ReviewDialog
+
+        dialog = ReviewDialog(self.window.project, self.window)
+        try:
+            with mock.patch.object(QMessageBox, "question", return_value=QMessageBox.StandardButton.Yes):
+                dialog.delete_clip()
+            self.assertEqual(len(dialog.ids), 1)
+            self.assertEqual(len(self.window.project.panels), 1)
+            self.assertEqual(dialog.counter.text(), "Clip 1 of 1")
+        finally:
+            dialog.close()
+
+    def test_review_pass_keys_move_and_close(self):
+        self._import()
+        from pencil_cleaner.studio import ReviewDialog
+        from PySide6.QtCore import QEvent, Qt
+        from PySide6.QtGui import QKeyEvent
+
+        dialog = ReviewDialog(self.window.project, self.window)
+        try:
+            before = dialog.index
+            dialog.keyPressEvent(QKeyEvent(QEvent.Type.KeyPress, Qt.Key.Key_Right, Qt.KeyboardModifier.NoModifier))
+            self.assertEqual(dialog.index, min(before + 1, len(dialog.ids) - 1))
+            dialog.keyPressEvent(QKeyEvent(QEvent.Type.KeyPress, Qt.Key.Key_Left, Qt.KeyboardModifier.NoModifier))
+            self.assertEqual(dialog.index, before)
+        finally:
+            dialog.close()
+
     def test_every_menu_has_its_shortcut(self):
         keys = {}
         for menu_action in self.window.menuBar().actions():

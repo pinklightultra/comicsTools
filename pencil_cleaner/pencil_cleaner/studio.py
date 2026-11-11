@@ -4,7 +4,7 @@ from __future__ import annotations
 from pathlib import Path
 
 import numpy as np
-from PySide6.QtCore import QMimeData, QSettings, QSize, QThread, Qt, QTimer, Signal
+from PySide6.QtCore import QMimeData, QRect, QSettings, QSize, QThread, Qt, QTimer, Signal
 from PySide6.QtGui import QAction, QColor, QDrag, QIcon, QImage, QKeySequence, QPainter, QPen, QPixmap
 from PySide6.QtWidgets import (
     QAbstractItemView,
@@ -528,6 +528,161 @@ class PageSettingsDialog(QDialog):
         super().accept()
 
 
+class ReviewDialog(QDialog):
+    """Step through every clip: what it prints like, where it sits on the page,
+    and one-key fixes. Left and Right move, E edits the crop on the scan,
+    I flips pencil and ink, D deletes the clip."""
+
+    def __init__(self, project: Project, window=None):
+        super().__init__(window)
+        self.project = project
+        self.window = window
+        self.setWindowTitle("Review clips")
+        self.resize(1060, 680)
+        self.ids = [panel.id for panel in project.panels]
+        self.index = 0
+        layout = QHBoxLayout(self)
+        self.preview = QLabel()
+        self.preview.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.preview.setMinimumSize(600, 480)
+        layout.addWidget(self.preview, 3)
+        right = QVBoxLayout()
+        self.context = QLabel()
+        self.context.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.context.setMinimumSize(320, 320)
+        right.addWidget(self.context)
+        self.counter = QLabel()
+        right.addWidget(self.counter)
+        self.info = QLabel()
+        self.info.setWordWrap(True)
+        right.addWidget(self.info, 1)
+        for label, slot in (
+            ("&Previous", lambda: self.step(-1)),
+            ("&Next", lambda: self.step(1)),
+            ("Edit crop (&E)", self.edit_on_canvas),
+            ("Flip pencil/ink (&I)", self.flip_stage),
+            ("Delete clip (&D)", self.delete_clip),
+        ):
+            right.addWidget(self._button(label, slot))
+        right.addStretch(1)
+        layout.addLayout(right, 1)
+        self.refresh()
+
+    def _button(self, label: str, slot) -> QPushButton:
+        button = QPushButton(label)
+        button.clicked.connect(slot)
+        return button
+
+    def panel(self):
+        if 0 <= self.index < len(self.ids):
+            return self.project.panel(self.ids[self.index])
+        return None
+
+    def step(self, delta: int) -> None:
+        if not self.ids:
+            self.close()
+            return
+        self.index = max(0, min(self.index + int(delta), len(self.ids) - 1))
+        self.refresh()
+
+    def refresh(self) -> None:
+        panel = self.panel()
+        if panel is None:
+            self.counter.setText("No clips.")
+            self.info.setText("")
+            self.preview.clear()
+            self.context.clear()
+            return
+        crop = self.project._finished_crop(panel)
+        pixmap = _pixmap_from_gray(np.asarray(crop))
+        self.preview.setPixmap(
+            pixmap.scaled(
+                self.preview.size(),
+                Qt.AspectRatioMode.KeepAspectRatio,
+                Qt.TransformationMode.SmoothTransformation,
+            )
+        )
+        gray = self.project.view_gray(panel.source_id)
+        page = _pixmap_from_gray(np.asarray(gray))
+        scale = min(1.0, 320.0 / max(1, gray.shape[1]))
+        page = page.scaledToWidth(max(1, int(page.width() * scale)), Qt.TransformationMode.SmoothTransformation)
+        painter = QPainter(page)
+        pen = QPen(QColor(220, 30, 30), 2)
+        painter.setPen(pen)
+        x0, y0, x1, y1 = panel.box()
+        painter.drawRect(
+            QRect(int(x0 * scale), int(y0 * scale), max(1, int((x1 - x0) * scale)), max(1, int((y1 - y0) * scale)))
+        )
+        painter.end()
+        self.context.setPixmap(
+            page.scaled(
+                self.context.size(),
+                Qt.AspectRatioMode.KeepAspectRatio,
+                Qt.TransformationMode.SmoothTransformation,
+            )
+        )
+        uses = self.project.placements_of(panel.id)
+        source = self.project.source(panel.source_id)
+        where = self.project.catalog_id(uses[0]) if uses else "not on a page"
+        self.counter.setText(f"Clip {self.index + 1} of {len(self.ids)}")
+        self.info.setText(
+            f"{where}\nSource: {source.name}\n"
+            f"Stage: {panel.stage} · deskew {source.skew_degrees:+.2f}°\n"
+            f"Crop {x1 - x0} × {y1 - y0} px on {len(uses)} page(s)"
+        )
+
+    def flip_stage(self) -> None:
+        panel = self.panel()
+        if panel is None:
+            return
+        self.project.set_meta(panel.id, stage="ink" if panel.stage == "pencil" else "pencil")
+        self.refresh()
+
+    def delete_clip(self) -> None:
+        panel = self.panel()
+        if panel is None:
+            return
+        answer = QMessageBox.question(
+            self,
+            "Delete clip?",
+            f"Delete {panel.id} from the library and every page it is on?",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.Cancel,
+            QMessageBox.StandardButton.Cancel,
+        )
+        if answer != QMessageBox.StandardButton.Yes:
+            return
+        self.project.delete_panel(panel.id)
+        self.ids.remove(panel.id)
+        if not self.ids:
+            self.accept()
+            return
+        self.index = min(self.index, len(self.ids) - 1)
+        self.refresh()
+
+    def edit_on_canvas(self) -> None:
+        panel = self.panel()
+        if panel is None:
+            return
+        if self.window is not None:
+            self.window._review_focus(panel.id)
+        self.accept()
+
+    def keyPressEvent(self, event) -> None:  # noqa: N802
+        key = event.key()
+        if key in (Qt.Key.Key_Left, Qt.Key.Key_PageUp):
+            self.step(-1)
+        elif key in (Qt.Key.Key_Right, Qt.Key.Key_PageDown):
+            self.step(1)
+        elif key == Qt.Key.Key_E:
+            self.edit_on_canvas()
+        elif key == Qt.Key.Key_I:
+            self.flip_stage()
+        elif key == Qt.Key.Key_D:
+            self.delete_clip()
+        else:
+            super().keyPressEvent(event)
+
+
 class StudioWindow(QMainWindow):
     def __init__(self):
         super().__init__()
@@ -607,6 +762,7 @@ class StudioWindow(QMainWindow):
         edits = QHBoxLayout()
         for label, slot in (
             ("Detect", self._detect),
+            ("Review", self._review_clips),
             ("Add panel", self._add_mode),
             ("Split", self._split),
             ("Merge", self._merge),
@@ -1020,6 +1176,28 @@ class StudioWindow(QMainWindow):
         self._show_source(self._source_id)
         self._refresh_board()
         self.status.setText("Deleted the clip and every place it was used.")
+
+    def _review_clips(self) -> None:
+        if not self.project.panels:
+            self.status.setText("There are no clips to review yet. Import a scan and find its panels.")
+            return
+        dialog = ReviewDialog(self.project, self)
+        dialog.exec()
+        self._refresh_board()
+        if self._source_id:
+            self._show_source(self._source_id)
+
+    def _review_focus(self, panel_id: str) -> None:
+        """Hand a clip from the review pass to the canvas for crop editing."""
+        panel = self.project.panel(panel_id)
+        self.canvas.selected_id = panel_id
+        self.canvas.also_id = None
+        self._show_source(panel.source_id)
+        self._load_meta(panel_id)
+        self._select_board_item(panel_id)
+        uses = self.project.placements_of(panel_id)
+        label = self.project.catalog_id(uses[0]) if uses else panel.id
+        self.status.setText(f"Editing {label} — drag the box edges, then click elsewhere.")
 
     def _undo(self) -> None:
         self._flush_meta()
@@ -1748,6 +1926,7 @@ class StudioWindow(QMainWindow):
         act(edit_menu, "Redo", self._redo_key, ["Ctrl+Shift+Z", "Ctrl+Y"])
         edit_menu.addSeparator()
         act(edit_menu, "Find panels on this scan", self._detect, "Ctrl+R")
+        act(edit_menu, "Review clips…", self._review_clips, "Ctrl+Shift+R")
         act(edit_menu, "Draw a panel", self._add_mode, "Ctrl+Shift+N")
         act(edit_menu, "Split panel", self._split)
         act(edit_menu, "Merge with Shift-clicked panel", self._merge)
@@ -1814,6 +1993,10 @@ class StudioWindow(QMainWindow):
                 keys = ", ".join(k.toString(QKeySequence.SequenceFormat.NativeText) for k in action.shortcuts())
                 if keys:
                     lines.append(f"{keys}\t{action.text().replace('&', '')}")
+        lines += [
+            "",
+            "In the review pass\t← / → step, E edit crop, I flip pencil/ink, D delete clip",
+        ]
         QMessageBox.information(self, "Keyboard shortcuts", "\n".join(lines))
 
     def _about(self) -> None:
