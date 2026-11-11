@@ -1,0 +1,98 @@
+# Builds the comicsTools desktop app for Linux, macOS, and Windows.
+# Pushing a v* tag builds the apps and attaches them to a GitHub release
+# for that tag. Publishing a release from the GitHub UI builds too, except
+# for the release this workflow itself creates (that would build twice).
+
+name: Desktop builds
+
+on:
+  push:
+    tags:
+      - "v*"
+  release:
+    types: [published]
+
+permissions:
+  contents: write
+
+concurrency:
+  group: desktop-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    if: github.event_name != 'release' || github.actor != 'github-actions[bot]'
+    name: ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install
+        run: |
+          python -m pip install --upgrade pip
+          pip install pyinstaller "./pencil_cleaner[gui]"
+
+      - name: Build
+        working-directory: pencil_cleaner
+        run: |
+          pyinstaller --noconfirm --clean --name comics-tools --windowed \
+            --distpath dist --workpath build --specpath build \
+            --collect-submodules pencil_cleaner \
+            --collect-all PySide6 \
+            --hidden-import cv2 \
+            --hidden-import scipy.ndimage \
+            --hidden-import PIL.Image \
+            --hidden-import pymupdf \
+            comics_tools_entry.py
+
+      - name: Pack Linux
+        if: runner.os == 'Linux'
+        run: tar -C pencil_cleaner/dist -czf comics-tools-linux.tar.gz comics-tools
+
+      - name: Pack macOS
+        if: runner.os == 'macOS'
+        run: ditto -c -k --keepParent pencil_cleaner/dist/comics-tools.app comics-tools-macos.zip
+
+      - name: Pack Windows
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: Compress-Archive -Path pencil_cleaner/dist/comics-tools -DestinationPath comics-tools-windows.zip
+
+      - name: Upload build
+        uses: actions/upload-artifact@v4
+        with:
+          name: comics-tools-${{ runner.os }}
+          path: |
+            comics-tools-linux.tar.gz
+            comics-tools-macos.zip
+            comics-tools-windows.zip
+          if-no-files-found: error
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download builds
+        uses: actions/download-artifact@v4
+        with:
+          pattern: comics-tools-*
+          merge-multiple: true
+          path: release-assets
+
+      - name: Attach to the GitHub release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: release-assets/*
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

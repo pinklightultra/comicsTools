@@ -2,6 +2,55 @@
 
 comicsTools is two programs for cartoonists who print a penciled page, ink it by hand, and scan it back: [comic-cropper](comic-cropper/README.md) frames the panels in the browser, and [pencil_cleaner](pencil_cleaner/README.md) lightens the pencil scan for that print or strips the leftover gray out of the inked scan.
 
+No generative AI. This tool doesn't draw, ink, letter, or generate anything. It handles the tedious parts — scanning cleanup, cropping panels, organizing and rearranging them — so you can spend your time on the actual art. It is not meant to replace cartoonists, or any part of making comics.
+
+The image work is thresholds, morphology, and deskew. Tesseract, if you install it, only reads lettering that is already on the scan. It does not write any.
+
+This project was built with AI coding assistance. Justin reviews it and maintains it.
+
+## Download the app
+
+![comicsTools after a scan is cropped and the panel order is swapped](docs/comics-tools.png)
+
+![Import, rearrange, export a ghost PDF](docs/comics-tools.gif)
+
+One command from a checkout installs the window and the libraries it uses:
+
+```bash
+pip install "./pencil_cleaner[gui]"
+```
+
+Start it with `comics-tools`, or `python -m pencil_cleaner gui`.
+
+The window is a clip bin for comic panels. Import copies a scan into the project and does not modify that file, or the file you dropped. A panel is a reference: the source file, a crop rectangle, the deskew angle, and a cleanup setting. Pixels are drawn when the page is shown or exported. They are not written back into the scan.
+
+The library lists every clip, with a thumbnail, tags, notes, and lettering. Filter by tag, or search the notes and the lettering. Drag a clip onto a page. The same clip can be on more than one page. Rearranging a page only changes the layout. Remove from page leaves the clip in the library. Editing the crop updates every place that clip is used. Undo and Redo cover those layout and crop edits.
+
+A layout number follows the page. Page 3, panel 2 is `p003-02`, and the number is assigned again when the layout changes. The clip’s own id does not change.
+
+An ink scan can be linked as another take of the same page. The stage control flips a clip between pencil and ink. Export ghost PDF renders the pencil crops as a US Letter ghost, with corner marks and a printer-test page. Export page PNG renders the current layout. Neither one writes the scan.
+
+Tags, notes, and lettering are stored on the clip. Export catalog writes `catalog.json`, `panels.csv`, and one PNG per layout id (`panels/p001-01.png`). Saving the project also writes `catalog.json` next to `project.json`.
+
+Lettering is read locally with Tesseract, and only when it is installed. [docs/ocr-sample.png](docs/ocr-sample.png) is a label drawn for this check, not a page from a comic. Tesseract 5.3.4 returned:
+
+```
+DOCK GATE
+```
+
+```bash
+sudo apt install tesseract-ocr   # or the Tesseract package for your system
+pip install pytesseract
+```
+
+If either one is missing, Read lettering leaves the text as it was and the status line says what to install.
+
+The command-line tools below still work. [comic-cropper](comic-cropper/README.md) is still the browser page.
+
+Prebuilt binaries for macOS, Windows, and Linux are built by [`.github/workflows/desktop.yml`](.github/workflows/desktop.yml) when a `v*` tag is pushed, and attached to the GitHub release for that tag. Publishing a release from the GitHub UI builds them too. The macOS app is not notarized. On Linux, if Qt says the platform plugin could not load, install the libraries it names. On Debian or Ubuntu that is `libegl1` and `libxkbcommon-x11-0`.
+
+Not in this window yet: importing the inked scan, registering it on the corner marks, the ink-cleanup slider, SVG trace, and exporting the finished pages as PNG, TIFF, PDF, or SVG. `pencil-cleaner clean` still does the cleanup from the terminal.
+
 Toner is carbon, so dropping a color channel does not remove a laser ghost. The page images stay on the machine that opens them. `pencil_cleaner` is version 0.4.9. The cropper is a static page and has no package version.
 
 | Program | What you use it for |
@@ -76,11 +125,11 @@ Library calls are the functions exported from `pencil_cleaner`: `prep_pencils_fo
 
 ```
 usage: pencil_cleaner [-h]
-                      {prep,clean,marks,printer-test,deskew,panels,app,tui,gpu-info}
+                      {prep,clean,marks,printer-test,deskew,panels,app,gui,tui,gpu-info}
                       ...
 
 positional arguments:
-  {prep,clean,marks,printer-test,deskew,panels,app,tui,gpu-info}
+  {prep,clean,marks,printer-test,deskew,panels,app,gui,tui,gpu-info}
     prep                lighten a pencils-only scan for printing/inking
     clean               strip pencil ghosts from an inked scan
     marks               clean scans of pages printed with corner registration
@@ -90,6 +139,7 @@ positional arguments:
     deskew              deskew and/or flatten lighting (no pencil stripping)
     panels              cut comic panels into separate PNGs
     app                 launch the Gradio web app
+    gui                 open the desktop window
     tui                 launch the interactive terminal user interface (TUI)
     gpu-info            display NVIDIA GPU hardware and acceleration status
 

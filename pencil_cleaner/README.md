@@ -56,11 +56,23 @@ Optional extras (see `pyproject.toml`):
 | `web` | gradio |
 | `tui` | textual, rich |
 | `gpu` | torch. Not included in `all`. |
-| `all` | PyMuPDF, cairosvg, pypdfium2, gradio, textual, rich. Not torch, and not the `potrace` binary. |
+| `gui` | PySide6-Essentials and PyMuPDF. The desktop window. Not included in `all`. |
+| `all` | PyMuPDF, cairosvg, pypdfium2, gradio, textual, rich. Not torch, not PySide6, and not the `potrace` binary. |
 
 Also useful as a **system** package: `potrace` (`apt install potrace` /
 `brew install potrace`) so `method="vector"` can trace true vector edges.
 Without it, `"vector"` silently falls back to morphological cleanup.
+
+## Desktop window
+
+From the repository root:
+
+```bash
+pip install "./pencil_cleaner[gui]"
+comics-tools
+```
+
+`comics-tools` is the project window: import scans, deskew, panel boxes, a board you can reorder, catalog ids (`p003-02`), tags, and a US Letter ghost PDF. Lettering uses Tesseract when it is installed. The command-line flags are unchanged. See the root README for the screenshot and the release builds.
 
 ## Terminal UI
 
