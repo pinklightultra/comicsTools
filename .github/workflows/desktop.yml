@@ -39,12 +39,14 @@ jobs:
           python-version: "3.12"
 
       - name: Install
+        shell: bash
         run: |
           python -m pip install --upgrade pip
           pip install pyinstaller "./pencil_cleaner[gui]"
 
       - name: Build
         working-directory: pencil_cleaner
+        shell: bash
         run: |
           pyinstaller --noconfirm --clean --name comics-tools --windowed \
             --distpath dist --workpath build --specpath build \
