@@ -660,6 +660,8 @@ class Project:
         pencil.linked_id = ink.id
         ink.linked_id = pencil.id
         ink.alignment = {}
+        ink.view_width = 0
+        ink.view_height = 0
 
     def _current_alignment(self, source: SourcePage) -> Optional[Alignment]:
         """The take's alignment, if it was measured against the pencil as it is now."""
@@ -1015,22 +1017,25 @@ class Project:
         panel.updated_at = _now()
         return panel
 
-    @undoable
-    def read_lettering(self, panel_id: str):
-        from .ocr_text import recognize
-
+    def lettering_image(self, panel_id: str) -> Image.Image:
+        """The crop an OCR pass would read, drawn from the clip's own take."""
         panel = self.panel(panel_id)
         gray = self.view_gray(self.render_source(panel).id)
         crop = np.asarray(gray[panel.y0 : panel.y1, panel.x0 : panel.x1])
         if crop.size == 0:
-            from .ocr_text import OcrResult
+            return Image.new("L", (8, 8), 255)
+        return Image.fromarray(np.clip(crop, 0, 255).astype(np.uint8), "L")
 
-            return OcrResult(text="", available=True, message="The panel crop is empty.")
-        image = Image.fromarray(np.clip(crop, 0, 255).astype(np.uint8), "L")
-        result = recognize(image)
+    def apply_lettering(self, panel_id: str, text: str) -> None:
+        """Save lettering on the clip. One undo step, like a typed edit."""
+        self.set_meta(panel_id, ocr_text=str(text))
+
+    def read_lettering(self, panel_id: str):
+        from .ocr_text import recognize
+
+        result = recognize(self.lettering_image(panel_id))
         if result.available:
-            panel.ocr_text = result.text
-            panel.updated_at = _now()
+            self.apply_lettering(panel_id, result.text)
         return result
 
     def write_catalog(self, dest: PathLike) -> Path:

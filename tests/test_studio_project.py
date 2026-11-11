@@ -12,7 +12,7 @@ from PIL import Image, ImageDraw
 REPO_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(REPO_ROOT / "pencil_cleaner"))
 
-from pencil_cleaner.mark_cleanup import MARK_D, MARK_INSET  # noqa: E402
+from pencil_cleaner.mark_cleanup import MARK_INSET  # noqa: E402
 from pencil_cleaner.studio_project import Panel, Project, SourcePage, clamp_box  # noqa: E402
 
 
@@ -279,6 +279,47 @@ class TestStudioProject(unittest.TestCase):
             project.set_meta(clip.id, stage="ink")
             self.assertEqual(project.render_source(project.panel(clip.id)).id, ink_id)
             self.assertEqual(pencil.read_bytes(), project.image_path(project.sources[0].id).read_bytes())
+
+    def test_lettering_is_a_read_then_an_undoable_apply(self):
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            scan = root / "page.png"
+            _two_panel_page(scan)
+            project = Project()
+            project.import_files([scan])
+            panel = project.panels[0]
+            image = project.lettering_image(panel.id)
+            self.assertEqual(image.size, (panel.x1 - panel.x0, panel.y1 - panel.y0))
+            project.apply_lettering(panel.id, "DOCK GATE")
+            self.assertEqual(project.panel(panel.id).ocr_text, "DOCK GATE")
+            self.assertTrue(project.undo())
+            self.assertEqual(project.panel(panel.id).ocr_text, "")
+            from unittest import mock
+
+            from pencil_cleaner.ocr_text import OcrResult
+
+            fake = OcrResult(text="DOCK GATE", available=True, message="")
+            with mock.patch("pencil_cleaner.ocr_text.recognize", return_value=fake):
+                result = project.read_lettering(panel.id)
+            self.assertEqual(result.text, "DOCK GATE")
+            self.assertEqual(project.panel(panel.id).ocr_text, "DOCK GATE")
+            self.assertTrue(project.undo())
+            self.assertEqual(project.panel(panel.id).ocr_text, "")
+
+    def test_relinking_clears_the_old_take_size(self):
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            pencil = root / "pencil.png"
+            ink = root / "ink.png"
+            _two_panel_page(pencil)
+            _two_panel_page(ink)
+            project = Project()
+            project.import_files([pencil, ink])
+            pencil_id, ink_id = project.sources[0].id, project.sources[1].id
+            ink = project.source(ink_id)
+            ink.view_width, ink.view_height = 999, 888
+            project.link_takes(pencil_id, ink_id)
+            self.assertEqual(ink.view_size(), (ink.width, ink.height))
 
     def test_missing_file_and_bad_version(self):
         project = Project()

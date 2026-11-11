@@ -541,6 +541,11 @@ class StudioWindow(QMainWindow):
         self._boards: list[tuple[int, BoardList]] = []
         self._syncing = False
         self._syncing_pages = False
+        self._meta_timer = QTimer(self)
+        self._meta_timer.setSingleShot(True)
+        self._meta_timer.setInterval(600)
+        self._meta_timer.timeout.connect(self._flush_meta)
+        self._meta_panel: str | None = None
         self._page_thumbs: dict = {}
         self._page_thumb_sig = None
 
@@ -797,6 +802,8 @@ class StudioWindow(QMainWindow):
         return True
 
     def _set_project(self, project: Project) -> None:
+        self._meta_timer.stop()
+        self._meta_panel = None
         self.project = project
         self._arrays = {}
         self._placement_id = None
@@ -845,6 +852,7 @@ class StudioWindow(QMainWindow):
     def _save_to(self, dest) -> bool:
         if self._busy():
             return False
+        self._flush_meta()
         try:
             path = self.project.save(dest)
         except Exception as exc:
@@ -1002,6 +1010,7 @@ class StudioWindow(QMainWindow):
         self.status.setText("Deleted the clip and every place it was used.")
 
     def _undo(self) -> None:
+        self._flush_meta()
         if not self.project.undo():
             self.status.setText("Nothing to undo.")
             return
@@ -1009,6 +1018,7 @@ class StudioWindow(QMainWindow):
         self.status.setText("Undid the last edit.")
 
     def _redo(self) -> None:
+        self._flush_meta()
         if not self.project.redo():
             self.status.setText("Nothing to redo.")
             return
@@ -1533,6 +1543,7 @@ class StudioWindow(QMainWindow):
         self._load_meta(panel_id)
 
     def _load_meta(self, panel_id: str | None) -> None:
+        self._flush_meta()
         self._loading_meta = True
         try:
             if not panel_id:
@@ -1555,30 +1566,72 @@ class StudioWindow(QMainWindow):
         panel_id = self.canvas.selected_id
         if not panel_id:
             return
+        if self.sender() in (self.notes_edit, self.ocr_edit):
+            # One undo step per pause, not one per character.
+            self._meta_panel = panel_id
+            self._meta_timer.start()
+            return
+        self._flush_meta()
         tags = [part.strip() for part in self.tags_edit.text().split(",")]
         self.project.set_meta(
             panel_id,
             tags=tags,
-            notes=self.notes_edit.toPlainText(),
             stage=self.stage_box.currentText(),
-            ocr_text=self.ocr_edit.toPlainText(),
         )
-        if self.sender() in (self.tags_edit, self.stage_box):
-            self._refresh_catalog()
+        self._refresh_catalog()
+
+    def _flush_meta(self) -> None:
+        """Apply lettering and notes typed since the last pause. Safe to call often."""
+        self._meta_timer.stop()
+        panel_id = self._meta_panel
+        if not panel_id:
+            return
+        self._meta_panel = None
+        if not any(item.id == panel_id for item in self.project.panels):
+            return
+        tags = [part.strip() for part in self.tags_edit.text().split(",")]
+        try:
+            self.project.set_meta(
+                panel_id,
+                tags=tags,
+                notes=self.notes_edit.toPlainText(),
+                stage=self.stage_box.currentText(),
+                ocr_text=self.ocr_edit.toPlainText(),
+            )
+        except (KeyError, ValueError):
+            return
 
     def _read_lettering(self) -> None:
+        if self._busy():
+            return
         panel_id = self.canvas.selected_id
         if not panel_id:
             self.status.setText("Select a panel to read.")
             return
-        result = self.project.read_lettering(panel_id)
-        self._load_meta(panel_id)
-        if not result.available:
-            self.status.setText(result.message)
-        elif result.text:
-            self.status.setText(f"Read lettering on clip {panel_id}.")
-        else:
-            self.status.setText("Tesseract read this panel and returned no text.")
+        self._flush_meta()
+        project = self.project
+
+        def work():
+            from .ocr_text import recognize
+
+            return recognize(project.lettering_image(panel_id))
+
+        def done(result):
+            if not result.available:
+                self.status.setText(result.message)
+                return
+            project.apply_lettering(panel_id, result.text)
+            if self.canvas.selected_id == panel_id:
+                self._load_meta(panel_id)
+            uses = project.placements_of(panel_id)
+            label = self.project.catalog_id(uses[0]) if uses else panel_id
+            self.status.setText(
+                f"Read lettering on {label}."
+                if result.text
+                else "Tesseract read this panel and returned no text."
+            )
+
+        self._run(work, done, "Reading lettering… Tesseract runs on the panel crop.")
 
     def _export_catalog(self) -> None:
         if not self.project.panels:
@@ -1828,6 +1881,7 @@ class StudioWindow(QMainWindow):
     def _autosave(self) -> None:
         if not self.project.has_folder() or (self._thread is not None and self._thread.isRunning()):
             return
+        self._flush_meta()
         if not self._is_dirty():
             return
         try:

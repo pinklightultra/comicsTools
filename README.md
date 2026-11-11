@@ -40,7 +40,7 @@ Find panels skips a box that is blank paper, such as an empty top margin. After 
 
 Tags, notes, and lettering are stored on the clip. Export catalog writes `catalog.json`, `panels.csv`, and one PNG per layout id (`panels/p001-01.png`). Saving the project also writes `catalog.json` next to `project.json`.
 
-Lettering is read locally with Tesseract, and only when it is installed. [docs/ocr-sample.png](docs/ocr-sample.png) is a label drawn for this check, not a page from a comic. Tesseract 5.3.4 returned:
+Lettering is read locally with Tesseract, and only when it is installed. Reading runs in the background, so the window stays responsive. Notes and lettering are saved to the clip a moment after you stop typing, so undo steps come per pause, not per letter. [docs/ocr-sample.png](docs/ocr-sample.png) is a label drawn for this check, not a page from a comic. Tesseract 5.3.4 returned:
 
 ```
 DOCK GATE

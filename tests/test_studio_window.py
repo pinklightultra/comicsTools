@@ -182,6 +182,46 @@ class TestStudioWindow(unittest.TestCase):
         finally:
             dialog.close()
 
+    def test_typing_notes_makes_one_undo_step_per_pause(self):
+        self._import()
+        panel_id = self.window.project.panels[0].id
+        self.window.canvas.selected_id = panel_id
+        self.window._load_meta(panel_id)
+        before = len(self.window.project._undo)
+        self.window.notes_edit.setPlainText("First note")
+        self.assertEqual(self.window.project.panel(panel_id).notes, "", "text waits for the pause")
+        self.window._flush_meta()
+        self.assertEqual(self.window.project.panel(panel_id).notes, "First note")
+        self.assertEqual(len(self.window.project._undo), before + 1)
+        self.window.notes_edit.setPlainText("Second note")
+        self.window._flush_meta()
+        self.assertEqual(len(self.window.project._undo), before + 2)
+        self.window._undo()
+        self.assertEqual(self.window.project.panel(panel_id).notes, "First note")
+
+    def test_read_lettering_runs_off_the_ui_thread(self):
+        self._import()
+        panel_id = self.window.project.panels[0].id
+        self.window.canvas.selected_id = panel_id
+        self.window._load_meta(panel_id)
+        from pencil_cleaner.ocr_text import OcrResult
+
+        fake = OcrResult(text="DOCK GATE", available=True, message="")
+        with mock.patch("pencil_cleaner.ocr_text.recognize", return_value=fake):
+            self.window._read_lettering()
+            end = time.time() + 30
+            finished = False
+            while time.time() < end:
+                self.app.processEvents()
+                if self.window._thread is not None and not self.window._thread.isRunning():
+                    self.app.processEvents()
+                    finished = True
+                    break
+                time.sleep(0.02)
+            self.assertTrue(finished, "OCR did not finish")
+        self.assertEqual(self.window.project.panel(panel_id).ocr_text, "DOCK GATE")
+        self.assertEqual(self.window.ocr_edit.toPlainText(), "DOCK GATE")
+
     def test_every_menu_has_its_shortcut(self):
         keys = {}
         for menu_action in self.window.menuBar().actions():
