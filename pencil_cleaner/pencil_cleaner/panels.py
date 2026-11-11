@@ -1741,9 +1741,172 @@ def find_panel_boxes(
         best = bannered
         best = _tighten_panel_boxes(g, best)
         # Thin banner strips are real panels but below full min_area
-        return _dedupe_sort(best, h, w, min_area * 0.12, padding_px)
+        return _finish_boxes(g, _dedupe_sort(best, h, w, min_area * 0.12, padding_px), min_panel_area_frac)
     best = _tighten_panel_boxes(g, best)
-    return _dedupe_sort(best, h, w, min_area, padding_px)
+    return _finish_boxes(g, _dedupe_sort(best, h, w, min_area, padding_px), min_panel_area_frac)
+
+
+def _finish_boxes(g: np.ndarray, boxes: List[Box], min_area_frac: float) -> List[Box]:
+    """Recover panels the passes above missed or cut short, then number them in reading order."""
+    return reading_order(_recover_missed_panels(g, boxes, min_area_frac))
+
+
+def _overlap_1d(a0: int, a1: int, b0: int, b1: int) -> int:
+    return max(0, min(a1, b1) - max(a0, b0))
+
+
+def reading_order(boxes: Sequence[Box]) -> List[Box]:
+    """Rows by vertical overlap, left to right inside a row; boxes stacked in one
+    column of a row read top to bottom. A fixed band height mis-ordered a row whose
+    panels start a little lower than their neighbour (pencil page 4, 11-11)."""
+
+    def same_row(a: Box, b: Box) -> bool:
+        return _overlap_1d(a[1], a[3], b[1], b[3]) >= 0.5 * min(a[3] - a[1], b[3] - b[1])
+
+    def same_col(a: Box, b: Box) -> bool:
+        return _overlap_1d(a[0], a[2], b[0], b[2]) >= 0.5 * min(a[2] - a[0], b[2] - b[0])
+
+    rows: List[List[Box]] = []
+    for box in sorted(boxes, key=lambda b: (b[1], b[0])):
+        for row in rows:
+            if any(same_row(box, other) for other in row):
+                row.append(box)
+                break
+        else:
+            rows.append([box])
+    ordered: List[Box] = []
+    for row in rows:
+        cols: List[List[Box]] = []
+        for box in sorted(row, key=lambda b: b[0]):
+            for col in cols:
+                if any(same_col(box, other) for other in col):
+                    col.append(box)
+                    break
+            else:
+                cols.append([box])
+        cols.sort(key=lambda c: min(b[0] for b in c))
+        for col in cols:
+            ordered.extend(sorted(col, key=lambda b: b[1]))
+    return ordered
+
+
+def _ink_mask(g: np.ndarray) -> np.ndarray:
+    paper = float(np.percentile(g, 90))
+    return g < min(200.0, paper - 40.0)
+
+
+def _band_split(ink: np.ndarray, min_gap: int, depth: int = 0) -> List[Box]:
+    """Cut an ink mask on its widest run of blank rows (then columns), trimming each piece to its ink."""
+    ys, xs = np.where(ink)
+    if len(ys) == 0:
+        return []
+    y0, y1, x0, x1 = int(ys.min()), int(ys.max()) + 1, int(xs.min()), int(xs.max()) + 1
+    sub = ink[y0:y1, x0:x1]
+    if depth < 4:
+        for axis in (1, 0):
+            blank = sub.mean(axis=axis) < 0.01
+            best = None
+            run = start = 0
+            for i, is_blank in enumerate(blank):
+                if is_blank:
+                    if run == 0:
+                        start = i
+                    run += 1
+                    continue
+                if run >= min_gap and start > 0 and (best is None or run > best[1] - best[0]):
+                    best = (start, start + run)
+                run = 0
+            if best:
+                cut = (best[0] + best[1]) // 2
+                if axis == 1:
+                    parts = ((sub[:cut], 0, 0), (sub[cut:], 0, cut))
+                else:
+                    parts = ((sub[:, :cut], 0, 0), (sub[:, cut:], cut, 0))
+                out: List[Box] = []
+                for part, ox, oy in parts:
+                    for a, b, c, d in _band_split(part, min_gap, depth + 1):
+                        out.append((a + ox + x0, b + oy + y0, c + ox + x0, d + oy + y0))
+                return out
+    return [(x0, y0, x1, y1)]
+
+
+def _recover_missed_panels(g: np.ndarray, boxes: List[Box], min_area_frac: float = 0.008) -> List[Box]:
+    """Find inked regions that no box covers.
+
+    Measured on 15 hand-drawn pencil pages (11-11): a region flush against
+    existing boxes is the top or side of those panels that was cut off, so they
+    are stretched over it; a region that holds whole old boxes replaces them; any
+    other region is split on blank paper and added as new panels.
+    """
+    h, w = g.shape
+    ink = _ink_mask(g)
+    m = max(4, int(min(h, w) * 0.012))
+    k = max(5, int(min(h, w) * 0.012)) | 1
+    blob = cv2.morphologyEx(
+        ink.astype(np.uint8), cv2.MORPH_CLOSE, cv2.getStructuringElement(cv2.MORPH_RECT, (k, k))
+    )
+    for x0, y0, x1, y1 in boxes:
+        blob[max(0, y0 - m):y1 + m, max(0, x0 - m):x1 + m] = 0
+    edge = max(3, int(min(h, w) * 0.01))
+    min_area = min_area_frac * h * w
+    n, _, stats, _ = cv2.connectedComponentsWithStats(blob, connectivity=8)
+
+    def inside(b: Box, c: Box, pad: int = m) -> bool:
+        return b[0] >= c[0] - pad and b[1] >= c[1] - pad and b[2] <= c[2] + pad and b[3] <= c[3] + pad
+
+    found: List[Box] = []
+    for i in range(1, n):
+        x, y, bw, bh = (int(v) for v in stats[i][:4])
+        if bw * bh < min_area or bw < 0.08 * w or bh < 0.05 * h:
+            continue
+        on_edge = x <= edge or y <= edge or x + bw >= w - edge or y + bh >= h - edge
+        if on_edge and (bw < 0.15 * w or bh < 0.1 * h):
+            continue  # scanner edge or page shadow
+        cand = (x, y, x + bw, y + bh)
+        if ink[y:y + bh, x:x + bw].mean() < 0.02:
+            continue
+        overlap = sum(
+            _overlap_1d(cand[0], cand[2], b[0], b[2]) * _overlap_1d(cand[1], cand[3], b[1], b[3])
+            for b in boxes
+            if not inside(b, cand)
+        )
+        if overlap > 0.25 * bw * bh:
+            continue
+        found.append(cand)
+    # Art inside a panel's frame is its own blob when it doesn't touch the frame.
+    found = [c for c in found if not any(o != c and inside(c, o, 0) for o in found)]
+    if not found:
+        return list(boxes)
+
+    grown = [list(b) for b in boxes]
+    gap = int(min(h, w) * 0.04)
+    fresh: List[Box] = []
+    for cx0, cy0, cx1, cy1 in found:
+        hit = False
+        for b in grown:
+            bw, bh = b[2] - b[0], b[3] - b[1]
+            if _overlap_1d(cx0, cx1, b[0], b[2]) >= 0.6 * bw and (cy1 - cy0) < 0.6 * bh:
+                if 0 <= b[1] - cy1 <= gap:
+                    b[1], hit = cy0, True
+                elif 0 <= cy0 - b[3] <= gap:
+                    b[3], hit = cy1, True
+            if _overlap_1d(cy0, cy1, b[1], b[3]) >= 0.6 * bh and (cx1 - cx0) < 0.6 * bw:
+                if 0 <= b[0] - cx1 <= gap:
+                    b[0], hit = cx0, True
+                elif 0 <= cx0 - b[2] <= gap:
+                    b[2], hit = cx1, True
+        if not hit:
+            fresh.append((cx0, cy0, cx1, cy1))
+    kept: List[Box] = [(b[0], b[1], b[2], b[3]) for b in grown]
+    kept = [b for b in kept if not any(inside(b, c, 4) for c in fresh)]
+    for x0, y0, x1, y1 in fresh:
+        part = ink[y0:y1, x0:x1].copy()
+        for b in kept:
+            part[max(0, b[1] - y0 - m):max(0, b[3] - y0 + m), max(0, b[0] - x0 - m):max(0, b[2] - x0 + m)] = False
+        pieces = [q for q in _band_split(part, max(6, m // 2)) if (q[2] - q[0]) * (q[3] - q[1]) >= min_area]
+        for a, b, c, d in pieces or [(0, 0, x1 - x0, y1 - y0)]:
+            kept.append((a + x0, b + y0, c + x0, d + y0))
+    return kept
 
 
 def _annotate_overview(gray: np.ndarray, boxes: Sequence[Box]) -> np.ndarray:

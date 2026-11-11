@@ -4,10 +4,11 @@ from __future__ import annotations
 from pathlib import Path
 
 import numpy as np
-from PySide6.QtCore import QMimeData, QSize, QThread, Qt, QTimer, Signal
-from PySide6.QtGui import QColor, QDrag, QIcon, QImage, QPainter, QPen, QPixmap
+from PySide6.QtCore import QMimeData, QSettings, QSize, QThread, Qt, QTimer, Signal
+from PySide6.QtGui import QAction, QColor, QDrag, QIcon, QImage, QKeySequence, QPainter, QPen, QPixmap
 from PySide6.QtWidgets import (
     QAbstractItemView,
+    QApplication,
     QComboBox,
     QFileDialog,
     QHBoxLayout,
@@ -16,6 +17,7 @@ from PySide6.QtWidgets import (
     QListWidget,
     QListWidgetItem,
     QMainWindow,
+    QMessageBox,
     QPlainTextEdit,
     QProgressBar,
     QPushButton,
@@ -28,9 +30,21 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from . import desktop_jobs
 from .studio_project import LAYOUTS, Project
 
 SCAN_FILTER = "Scans (*.png *.jpg *.jpeg *.tif *.tiff *.webp *.bmp *.pdf);;All files (*)"
+AUTOSAVE_MS = 120_000
+RECENT_MAX = 8
+# Tools menu: (task, label, output kind). "file" asks for a file, "folder" for a folder.
+TOOLS = (
+    ("prep", "Prep pencils for printing…", "file"),
+    ("clean", "Clean an ink scan…", "file"),
+    ("deskew", "Straighten a scan…", "file"),
+    ("panels", "Cut panels to files…", "folder"),
+    ("printer", "Score a printer test…", "folder"),
+    ("marks", "Clean a page printed with corner marks…", "folder"),
+)
 
 
 def _pixmap_from_gray(gray) -> QPixmap:
@@ -530,6 +544,22 @@ class StudioWindow(QMainWindow):
         splitter.setSizes([640, 500])
         layout.addWidget(splitter, 1)
 
+        self.settings = QSettings("pinklightultra", "comicsTools")
+        self._build_menus()
+        self._saved_sig = self.project.state_signature()
+        geometry = self.settings.value("window/geometry")
+        if geometry is not None:
+            self.restoreGeometry(geometry)
+        # Title shows * while there are unsaved changes; autosave only once the
+        # project has a folder the user chose.
+        self._title_timer = QTimer(self)
+        self._title_timer.timeout.connect(self._update_title)
+        self._title_timer.start(700)
+        self._autosave_timer = QTimer(self)
+        self._autosave_timer.timeout.connect(self._autosave)
+        self._autosave_timer.start(AUTOSAVE_MS)
+        self._update_title()
+
     def _button(self, label, slot) -> QPushButton:
         button = QPushButton(label)
         button.clicked.connect(slot)
@@ -550,8 +580,9 @@ class StudioWindow(QMainWindow):
             event.ignore()
 
     def _import(self) -> None:
-        paths, _ = QFileDialog.getOpenFileNames(self, "Import scans", "", SCAN_FILTER)
+        paths, _ = QFileDialog.getOpenFileNames(self, "Import scans", self._last_dir("scans"), SCAN_FILTER)
         if paths:
+            self._remember_dir("scans", paths[0])
             self._import_paths(paths)
 
     def _import_paths(self, paths) -> None:
@@ -568,38 +599,94 @@ class StudioWindow(QMainWindow):
         self.status.setText(f"Imported {len(ids)} page(s). {count} panel(s) detected.")
 
     def _open(self) -> None:
-        folder = QFileDialog.getExistingDirectory(self, "Open project folder")
-        if not folder:
+        if not self._maybe_save("opening another project"):
             return
+        folder = QFileDialog.getExistingDirectory(self, "Open project folder", self._last_dir("projects"))
+        if folder:
+            self._open_folder(folder, asked=True)
+
+    def _open_folder(self, folder: str, asked: bool = False) -> bool:
+        if not asked and not self._maybe_save("opening another project"):
+            return False
+        if self._busy():
+            return False
         try:
-            self.project = Project.load(folder)
+            project = Project.load(folder)
         except Exception as exc:
             self.status.setText(f"{type(exc).__name__}: {exc}")
-            return
-        self.opacity.setCurrentText(self.project.opacity if self.project.opacity in ("light", "medium", "dark") else "light")
-        self.bleed.setValue(self.project.bleed)
-        self._select_layout(self.project.columns, self.project.rows)
-        self._fill_sources(select=self.project.sources[0].id if self.project.sources else None)
+            self._drop_recent(folder)
+            return False
+        self._set_project(project)
+        self._remember_dir("projects", folder)
+        self._add_recent(folder)
         self.status.setText(f"Opened {folder}")
+        return True
 
-    def _save(self) -> None:
-        dest = None
-        if self.project.root is None or self.project.root.name.startswith("comics-tools-"):
-            folder = QFileDialog.getExistingDirectory(self, "Project folder")
-            if not folder:
-                return
-            dest = folder
+    def _set_project(self, project: Project) -> None:
+        self.project = project
+        self._arrays = {}
+        self._placement_id = None
+        self.canvas.selected_id = None
+        self.canvas.also_id = None
+        self.opacity.blockSignals(True)
+        self.opacity.setCurrentText(project.opacity if project.opacity in ("light", "medium", "dark") else "light")
+        self.opacity.blockSignals(False)
+        self.bleed.blockSignals(True)
+        self.bleed.setValue(project.bleed)
+        self.bleed.blockSignals(False)
+        self._select_layout(project.columns, project.rows)
+        self._fill_sources(select=project.sources[0].id if project.sources else None)
+        self._load_meta(None)
+        self._mark_clean()
+
+    def _new(self) -> None:
+        if not self._maybe_save("starting a new project") or self._busy():
+            return
+        self._set_project(Project())
+        self.status.setText("New project. Drop scans here, or use Import.")
+
+    def _save(self) -> bool:
+        if not self.project.has_folder():
+            return self._save_as()
+        return self._save_to(None)
+
+    def _save_as(self) -> bool:
+        folder = QFileDialog.getExistingDirectory(self, "Save the project in this folder", self._last_dir("projects"))
+        if not folder:
+            return False
+        target = Path(folder)
+        current = Path(self.project.root).resolve() if self.project.root else None
+        if (target / "project.json").is_file() and target.resolve() != current:
+            answer = QMessageBox.question(
+                self,
+                "Replace project?",
+                f"{target} already holds a comicsTools project. Replace it with this one?",
+                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.Cancel,
+                QMessageBox.StandardButton.Cancel,
+            )
+            if answer != QMessageBox.StandardButton.Yes:
+                return False
+        return self._save_to(folder)
+
+    def _save_to(self, dest) -> bool:
+        if self._busy():
+            return False
         try:
             path = self.project.save(dest)
         except Exception as exc:
             self.status.setText(f"{type(exc).__name__}: {exc}")
-            return
+            return False
+        self._mark_clean()
+        self._remember_dir("projects", str(path))
+        self._add_recent(str(path))
         self.status.setText(f"Saved {path}")
+        return True
 
     def _export(self) -> None:
-        path, _ = QFileDialog.getSaveFileName(self, "Ghost PDF", "ghost.pdf", "PDF (*.pdf)")
+        path, _ = QFileDialog.getSaveFileName(self, "Ghost PDF", self._in_dir("exports", "ghost.pdf"), "PDF (*.pdf)")
         if not path:
             return
+        self._remember_dir("exports", path)
         selected = self._selected_board_ids()
         panel_ids = selected or None
 
@@ -729,34 +816,64 @@ class StudioWindow(QMainWindow):
         if not self.project.undo():
             self.status.setText("Nothing to undo.")
             return
-        self._arrays = {}
-        self._show_source(self._source_id)
-        self._refresh_board()
-        self.status.setText("Undid the last layout or crop edit.")
+        self._after_history()
+        self.status.setText("Undid the last edit.")
 
     def _redo(self) -> None:
         if not self.project.redo():
             self.status.setText("Nothing to redo.")
             return
-        self._arrays = {}
-        self._show_source(self._source_id)
-        self._refresh_board()
+        self._after_history()
         self.status.setText("Redid the edit.")
 
+    def _after_history(self) -> None:
+        """Undo and redo can change scans, takes and settings, not only the board."""
+        project = self.project
+        self._arrays = {}
+        self.opacity.blockSignals(True)
+        self.opacity.setCurrentText(project.opacity if project.opacity in ("light", "medium", "dark") else "light")
+        self.opacity.blockSignals(False)
+        self.bleed.blockSignals(True)
+        self.bleed.setValue(project.bleed)
+        self.bleed.blockSignals(False)
+        self._select_layout(project.columns, project.rows)
+        ids = {s.id for s in project.sources}
+        keep = self._source_id if self._source_id in ids else (project.sources[0].id if project.sources else None)
+        if self._placement_id and not any(p.id == self._placement_id for p in project.placements):
+            self._placement_id = None
+            self.canvas.selected_id = None
+        self._fill_sources(select=keep)
+        self._refresh_board()
+
     def _link_ink(self) -> None:
-        if not self._source_id:
-            self.status.setText("Select the pencil scan first.")
+        """Ink scans or finished pages, in any order: each is matched to the pencil
+        scan it shows, linked, and lined up on it."""
+        if not any(s.take == "pencil" and not s.linked_id for s in self.project.sources):
+            self.status.setText("Import the pencil scans first. Every pencil scan already has an ink take.")
             return
-        path, _ = QFileDialog.getOpenFileName(self, "Ink scan of this page", "", SCAN_FILTER)
-        if not path:
+        paths, _ = QFileDialog.getOpenFileNames(
+            self, "Ink scans or finished pages (any order)", self._last_dir("scans"), SCAN_FILTER
+        )
+        if not paths:
             return
-        try:
-            self.project.attach_ink(path, self._source_id)
-        except Exception as exc:
-            self.status.setText(f"{type(exc).__name__}: {exc}")
-            return
+        self._remember_dir("scans", paths[0])
+
+        def work():
+            return self.project.import_takes(paths)
+
+        self._run(work, self._after_link, f"Matching {len(paths)} file(s) to their pencil scans…")
+
+    def _after_link(self, results) -> None:
+        names = {s.id: s.name for s in self.project.sources}
+        lined = [r for r in results if r[1] and "lined up" in r[2]]
+        lines = [f"{names[t]} → {names.get(p, 'no match')}: {note}" for t, p, note in results]
         self._fill_sources(self._source_id)
-        self.status.setText("Linked the ink scan as another take. Set the stage to ink to flip the clip.")
+        self.status.setText(
+            f"Linked {len(lined)} of {len(results)} take(s), lined up on their pencils. "
+            "Set a clip's stage to ink to use its ink take."
+        )
+        if len(results) > len(lined):
+            QMessageBox.information(self, "Link ink", "\n".join(lines))
 
     def _current_placement(self) -> str | None:
         if self._placement_id and any(item.id == self._placement_id for item in self.project.placements):
@@ -795,19 +912,21 @@ class StudioWindow(QMainWindow):
         self._load_meta(self.project.placement(placement_id).panel_id)
 
     def _set_opacity(self, name: str) -> None:
-        self.project.opacity = name
+        if name != self.project.opacity:
+            self.project.set_settings(opacity=name)
 
     def _set_bleed(self, value: int) -> None:
-        self.project.bleed = int(value)
+        if int(value) != self.project.bleed:
+            self.project.set_settings(bleed=int(value))
         if self._source_id:
             self._show_source(self._source_id)
 
     def _set_layout(self) -> None:
         cols, rows = self.layout_box.currentData()
-        self.project.columns = int(cols)
-        self.project.rows = int(rows)
+        if (int(cols), int(rows)) == (self.project.columns, self.project.rows):
+            return
+        self.project.set_settings(columns=int(cols), rows=int(rows))
         if self.project.placements:
-            self.project.pack_grid()
             self._show_source(self._source_id)
             self._refresh_board()
 
@@ -1151,9 +1270,10 @@ class StudioWindow(QMainWindow):
         if not self.project.panels:
             self.status.setText("There are no panels to export.")
             return
-        folder = QFileDialog.getExistingDirectory(self, "Catalog folder")
+        folder = QFileDialog.getExistingDirectory(self, "Catalog folder", self._last_dir("exports"))
         if not folder:
             return
+        self._remember_dir("exports", folder)
         try:
             written = self.project.export_catalog(folder)
         except Exception as exc:
@@ -1167,9 +1287,10 @@ class StudioWindow(QMainWindow):
         if not self.project.placements:
             self.status.setText("There is no page layout to render.")
             return
-        path, _ = QFileDialog.getSaveFileName(self, "Layout page", "page.png", "PNG (*.png)")
+        path, _ = QFileDialog.getSaveFileName(self, "Layout page", self._in_dir("exports", "page.png"), "PNG (*.png)")
         if not path:
             return
+        self._remember_dir("exports", path)
         page_index = 0
         if self._placement_id:
             page_index = self.project.placement(self._placement_id).board_page
@@ -1180,8 +1301,278 @@ class StudioWindow(QMainWindow):
             return
         self.status.setText(f"Rendered page {page_index + 1} to {dest}")
 
+    # --- menus, shortcuts, settings -------------------------------------------------
+
+    def _build_menus(self) -> None:
+        bar = self.menuBar()
+
+        def act(menu, label, slot, keys=None):
+            action = QAction(label, self)
+            if keys:
+                action.setShortcuts([QKeySequence(k) for k in (keys if isinstance(keys, (list, tuple)) else [keys])])
+            action.triggered.connect(lambda _checked=False: slot())
+            menu.addAction(action)
+            return action
+
+        file_menu = bar.addMenu("&File")
+        act(file_menu, "New project", self._new, QKeySequence.StandardKey.New)
+        act(file_menu, "Open project…", self._open, QKeySequence.StandardKey.Open)
+        self.recent_menu = file_menu.addMenu("Open recent")
+        self.recent_menu.aboutToShow.connect(self._fill_recent)
+        act(file_menu, "Save", self._save, QKeySequence.StandardKey.Save)
+        act(file_menu, "Save as…", self._save_as, "Ctrl+Shift+S")
+        file_menu.addSeparator()
+        act(file_menu, "Import scans…", self._import, "Ctrl+I")
+        act(file_menu, "Link ink scans or finished pages…", self._link_ink)
+        file_menu.addSeparator()
+        act(file_menu, "Export ghost PDF…", self._export, "Ctrl+E")
+        act(file_menu, "Export finished pages…", self._export_pages, "Ctrl+Shift+E")
+        act(file_menu, "Export page PNG…", self._export_page_png)
+        act(file_menu, "Export catalog…", self._export_catalog)
+        file_menu.addSeparator()
+        act(file_menu, "Quit", self.close, QKeySequence.StandardKey.Quit)
+
+        edit_menu = bar.addMenu("&Edit")
+        act(edit_menu, "Undo", self._undo_key, QKeySequence.StandardKey.Undo)
+        act(edit_menu, "Redo", self._redo_key, ["Ctrl+Shift+Z", "Ctrl+Y"])
+        edit_menu.addSeparator()
+        act(edit_menu, "Find panels on this scan", self._detect, "Ctrl+R")
+        act(edit_menu, "Draw a panel", self._add_mode, "Ctrl+Shift+N")
+        act(edit_menu, "Split panel", self._split)
+        act(edit_menu, "Merge with Shift-clicked panel", self._merge)
+        act(edit_menu, "Duplicate on page", self._duplicate_key, "Ctrl+D")
+        act(edit_menu, "Remove from page", self._delete_key, QKeySequence.StandardKey.Delete)
+        act(edit_menu, "Delete clip from library", self._delete_clip)
+        edit_menu.addSeparator()
+        act(edit_menu, "Move earlier", lambda: self._nudge(-1), "Ctrl+[")
+        act(edit_menu, "Move later", lambda: self._nudge(1), "Ctrl+]")
+        act(edit_menu, "Move to previous page", lambda: self._shift_page(-1), "Ctrl+PgUp")
+        act(edit_menu, "Move to next page", lambda: self._shift_page(1), "Ctrl+PgDown")
+
+        tools_menu = bar.addMenu("&Tools")
+        for task, label, kind in TOOLS:
+            act(tools_menu, label, lambda t=task, k=kind: self._run_tool(t, k))
+
+        help_menu = bar.addMenu("&Help")
+        act(help_menu, "Keyboard shortcuts", self._show_shortcuts, QKeySequence.StandardKey.HelpContents)
+        act(help_menu, "About comicsTools", self._about)
+
+    def _text_focus(self):
+        widget = QApplication.focusWidget()
+        return widget if isinstance(widget, (QLineEdit, QPlainTextEdit)) else None
+
+    # Shortcuts that would also mean something in a text box go to the text box first.
+    def _undo_key(self) -> None:
+        box = self._text_focus()
+        box.undo() if box is not None else self._undo()
+
+    def _redo_key(self) -> None:
+        box = self._text_focus()
+        box.redo() if box is not None else self._redo()
+
+    def _delete_key(self) -> None:
+        box = self._text_focus()
+        if isinstance(box, QLineEdit):
+            box.del_()
+        elif isinstance(box, QPlainTextEdit):
+            box.textCursor().deleteChar()
+        else:
+            self._delete()
+
+    def _duplicate_key(self) -> None:
+        if self._text_focus() is None:
+            self._duplicate()
+
+    def _show_shortcuts(self) -> None:
+        lines = []
+        for menu_action in self.menuBar().actions():
+            menu = menu_action.menu()
+            if menu is None:
+                continue
+            for action in menu.actions():
+                keys = ", ".join(k.toString(QKeySequence.SequenceFormat.NativeText) for k in action.shortcuts())
+                if keys:
+                    lines.append(f"{keys}\t{action.text().replace('&', '')}")
+        QMessageBox.information(self, "Keyboard shortcuts", "\n".join(lines))
+
+    def _about(self) -> None:
+        try:
+            from importlib.metadata import version
+
+            ver = version("pencil-cleaner")
+        except Exception:
+            ver = "unknown"
+        QMessageBox.about(
+            self,
+            "About comicsTools",
+            f"comicsTools (pencil-cleaner {ver})\n\n"
+            "Scan cleanup, panel cropping, and page layout for hand-drawn comics. "
+            "It does not draw, ink, letter, or generate art. Your scans are never changed.",
+        )
+
+    def _last_dir(self, key: str) -> str:
+        return str(self.settings.value(f"dirs/{key}", "") or "")
+
+    def _in_dir(self, key: str, name: str) -> str:
+        folder = self._last_dir(key)
+        return str(Path(folder) / name) if folder else name
+
+    def _remember_dir(self, key: str, path: str) -> None:
+        p = Path(path)
+        self.settings.setValue(f"dirs/{key}", str(p if p.is_dir() else p.parent))
+
+    def _recent(self) -> list[str]:
+        value = self.settings.value("recent", []) or []
+        return [value] if isinstance(value, str) else list(value)
+
+    def _add_recent(self, folder: str) -> None:
+        folder = str(Path(folder).resolve())
+        items = [f for f in self._recent() if f != folder]
+        self.settings.setValue("recent", ([folder] + items)[:RECENT_MAX])
+
+    def _drop_recent(self, folder: str) -> None:
+        folder = str(Path(folder).resolve())
+        self.settings.setValue("recent", [f for f in self._recent() if f != folder])
+
+    def _fill_recent(self) -> None:
+        self.recent_menu.clear()
+        items = self._recent()
+        if not items:
+            empty = self.recent_menu.addAction("No recent projects")
+            empty.setEnabled(False)
+            return
+        for folder in items:
+            action = self.recent_menu.addAction(folder)
+            action.triggered.connect(lambda _checked=False, f=folder: self._open_folder(f))
+
+    # --- unsaved changes, close, autosave -------------------------------------------
+
+    def _busy(self) -> bool:
+        if self._thread is not None and self._thread.isRunning():
+            self.status.setText("Wait for the current job to finish.")
+            return True
+        return False
+
+    def _is_dirty(self) -> bool:
+        if self._thread is not None and self._thread.isRunning():
+            return True  # an import or detect in progress is a change
+        return self.project.state_signature() != self._saved_sig
+
+    def _mark_clean(self) -> None:
+        self._saved_sig = self.project.state_signature()
+        self._update_title()
+
+    def _update_title(self) -> None:
+        if self._thread is not None and self._thread.isRunning():
+            return  # a worker thread may be changing the project
+        name = Path(self.project.root).name if self.project.has_folder() else "Untitled"
+        self.setWindowTitle(f"{name}[*] - comicsTools")
+        self.setWindowModified(self._is_dirty())
+
+    def _maybe_save(self, doing: str) -> bool:
+        """True when it's fine to drop the current project: saved, discarded, or nothing to lose."""
+        if self._thread is not None and self._thread.isRunning():
+            QMessageBox.information(self, "comicsTools", "A job is still running. Wait for it to finish.")
+            return False
+        if not self._is_dirty():
+            return True
+        answer = QMessageBox.warning(
+            self,
+            "Unsaved changes",
+            f"This project has changes that aren't saved. Save them before {doing}?",
+            QMessageBox.StandardButton.Save | QMessageBox.StandardButton.Discard | QMessageBox.StandardButton.Cancel,
+            QMessageBox.StandardButton.Save,
+        )
+        if answer == QMessageBox.StandardButton.Save:
+            return self._save()
+        return answer == QMessageBox.StandardButton.Discard
+
+    def closeEvent(self, event) -> None:  # noqa: N802
+        if not self._maybe_save("closing"):
+            event.ignore()
+            return
+        self.settings.setValue("window/geometry", self.saveGeometry())
+        event.accept()
+
+    def _autosave(self) -> None:
+        if not self.project.has_folder() or (self._thread is not None and self._thread.isRunning()):
+            return
+        if not self._is_dirty():
+            return
+        try:
+            self.project.save()
+        except Exception as exc:
+            self.status.setText(f"Autosave failed. {type(exc).__name__}: {exc}")
+            return
+        self._mark_clean()
+        from datetime import datetime
+
+        self.status.setText(f"Autosaved at {datetime.now().strftime('%H:%M')}.")
+
+    # --- finished pages and the cleanup tools ---------------------------------------
+
+    def _export_pages(self) -> None:
+        if not self.project.placements:
+            self.status.setText("There is no page layout to export.")
+            return
+        path, chosen = QFileDialog.getSaveFileName(
+            self,
+            "Export finished pages",
+            self._in_dir("exports", "pages.pdf"),
+            "PDF, all pages in one file (*.pdf);;PNG, one file per page (*.png);;TIFF, one file per page (*.tif *.tiff)",
+        )
+        if not path:
+            return
+        self._remember_dir("exports", path)
+        fmt = "png" if chosen.startswith("PNG") else "tiff" if chosen.startswith("TIFF") else "pdf"
+        target = Path(path)
+        if fmt != "pdf":
+            target = target.with_suffix("")  # a folder named after the file the user typed
+
+        def work():
+            return self.project.write_pages(target, fmt)
+
+        def done(written):
+            where = written[0] if fmt == "pdf" else target
+            self.status.setText(f"Wrote {len(written) if fmt != 'pdf' else 'all'} page(s) to {where}. The scans were not changed.")
+
+        self._run(work, done, "Rendering the finished pages…")
+
+    def _run_tool(self, task: str, kind: str) -> None:
+        if self._busy():
+            return
+        src, _ = QFileDialog.getOpenFileName(self, "Choose the scan", self._last_dir("scans"), SCAN_FILTER)
+        if not src:
+            return
+        self._remember_dir("scans", src)
+        suggested = str(desktop_jobs.suggest_output(task, src))
+        if kind == "file":
+            dest, _ = QFileDialog.getSaveFileName(self, "Save the result as", suggested)
+        else:
+            dest = QFileDialog.getExistingDirectory(self, "Put the results in this folder", str(Path(suggested).parent))
+            if dest:
+                dest = str(Path(dest) / Path(suggested).name)
+        if not dest:
+            return
+        options = {}
+        if task == "prep":
+            options["opacity"] = self.project.opacity
+        if task in ("prep", "clean", "deskew"):
+            options["dpi"] = int(self.project.dpi)
+
+        def work():
+            return desktop_jobs.run_job(task, input_path=src, output_path=dest, **options)
+
+        def done(result):
+            self.status.setText(result.summary.splitlines()[0] if result.summary else "Done.")
+            if len(result.summary.splitlines()) > 1:
+                QMessageBox.information(self, "comicsTools", result.summary)
+
+        self._run(work, done, f"Running {task}… The input file is not changed.")
+
     def _run(self, fn, done, label: str) -> None:
         if self._thread is not None and self._thread.isRunning():
+            self.status.setText("Wait for the current job to finish.")
             return
         self.status.setText(label)
         self.progress.setRange(0, 0)

@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "pencil-cleaner"
-version = "0.4.9"
+version = "0.5.0"
 description = "Prep comic pencil scans for printing, strip pencil ghosts from inked scans, score printer tests, deskew, and cut panels."
 readme = "README.md"
 requires-python = ">=3.8"

@@ -28,7 +28,13 @@ The library lists every clip, with a thumbnail, tags, notes, and lettering. Filt
 
 A layout number follows the page. Page 3, panel 2 is `p003-02`, and the number is assigned again when the layout changes. The clip’s own id does not change.
 
-An ink scan can be linked as another take of the same page. The stage control flips a clip between pencil and ink. Export ghost PDF renders the pencil crops as a US Letter ghost, with corner marks and a printer-test page. Export page PNG renders the current layout. Neither one writes the scan.
+Link ink scans or finished pages takes any number of files or a PDF, in any order. Each page is matched to the pencil scan it shows, linked as another take, and lined up on it: a whole-page fit, then a fine grid of small offsets for paper curl and scanner drift. On the 15 BLUE175 pages the finished PDF had pages 3 and 4 swapped; all 15 paired correctly and lined up within 0.4 to 0.9 px. The take is drawn through that alignment, so the pencil's panel boxes cut the same art from it, and the file is not changed. The stage control flips a clip between pencil and ink. Export ghost PDF renders the pencil crops as a US Letter ghost, with corner marks and a printer-test page. Export finished pages renders every layout page at full strength, with no corner marks, as one PDF or as one PNG or TIFF per page. A clip set to ink renders from its ink scan. Export page PNG renders the current layout. None of them writes the scan.
+
+The title bar shows `*` while there are unsaved changes. Closing, opening another project, or starting a new one asks before throwing changes away. Once a project has been saved to a folder, it autosaves there every two minutes; a project that was never saved is not autosaved, because it has no folder yet. Save writes `project.json` to a temporary file first, so a crash mid-save leaves the old file whole. File > Open recent lists the last eight projects. The window remembers its size and the last folder you used for scans, projects, and exports. Help > Keyboard shortcuts lists the keys: Ctrl+S save, Ctrl+O open, Ctrl+I import, Ctrl+Z undo, Ctrl+E ghost PDF, Delete removes the selected panel from its page. In a text box, Undo, Redo, and Delete act on the text.
+
+The Tools menu runs the cleanup programs on a file you pick: prep pencils for printing, clean an ink scan, straighten a scan, cut panels to files, score a printer test, and clean a page printed with corner marks. Each one writes a new file next to the input, or where you choose, and does not change the input.
+
+Find panels skips a box that is blank paper, such as an empty top margin. After the main pass it looks for inked areas no box covers: one that sits against the edge of a found panel stretches that panel over it, and any other becomes a new panel, cut on blank paper. Panels are numbered by row, left to right. On hand-drawn pages it can still take two panels as one or cut one in two; Split, Merge, and the crop handles fix those.
 
 Tags, notes, and lettering are stored on the clip. Export catalog writes `catalog.json`, `panels.csv`, and one PNG per layout id (`panels/p001-01.png`). Saving the project also writes `catalog.json` next to `project.json`.
 
@@ -49,9 +55,9 @@ The command-line tools below still work. [comic-cropper](comic-cropper/README.md
 
 Prebuilt binaries for macOS, Windows, and Linux are built by [`.github/workflows/desktop.yml`](.github/workflows/desktop.yml) when a `v*` tag is pushed, and attached to the GitHub release for that tag. Publishing a release from the GitHub UI builds them too. The macOS app is not notarized. On Linux, if Qt says the platform plugin could not load, install the libraries it names. On Debian or Ubuntu that is `libegl1` and `libxkbcommon-x11-0`.
 
-Not in this window yet: importing the inked scan, registering it on the corner marks, the ink-cleanup slider, SVG trace, and exporting the finished pages as PNG, TIFF, PDF, or SVG. `pencil-cleaner clean` still does the cleanup from the terminal.
+Not in this window yet: registering an ink scan on the corner marks so it lines up with the pencil crop, a live ink-cleanup slider, SVG trace, and SVG export. Tools > Clean an ink scan runs the cleanup with its default settings; `pencil-cleaner clean` has every option. The macOS and Windows builds are not signed, so the first launch shows a security warning.
 
-Toner is carbon, so dropping a color channel does not remove a laser ghost. The page images stay on the machine that opens them. `pencil_cleaner` is version 0.4.9. The cropper is a static page and has no package version.
+Toner is carbon, so dropping a color channel does not remove a laser ghost. The page images stay on the machine that opens them. `pencil_cleaner` is version 0.5.0. The cropper is a static page and has no package version.
 
 | Program | What you use it for |
 | --- | --- |
