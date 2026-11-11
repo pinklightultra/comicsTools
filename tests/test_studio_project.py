@@ -307,6 +307,48 @@ class TestStudioProject(unittest.TestCase):
             self.assertTrue(project.undo())
             self.assertFalse(project.bw)
 
+    def test_exif_orientation_is_applied_on_import(self):
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            image = Image.new("L", (300, 200), 255)
+            draw = ImageDraw.Draw(image)
+            draw.rectangle((0, 0, 40, 40), fill=0)
+            exif = Image.Exif()
+            exif[274] = 6  # 90 degrees: the stored top edge shows on the right
+            path = root / "phone.jpg"
+            image.save(path, exif=exif)
+            with Image.open(path) as raw:
+                raw_size = raw.size
+            from pencil_cleaner._pageio import load_gray
+
+            gray = load_gray(path)
+            self.assertEqual(raw_size, (300, 200))
+            self.assertEqual(gray.shape, (300, 200), "an EXIF sideways photo imports upright")
+
+    def test_pdf_fallback_pages_order_by_number_not_string(self):
+        from pencil_cleaner._pageio import sorted_pdf_pages
+
+        names = ["page-1.png", "page-10.png", "page-2.png", "page-11.png", "page-3.png"]
+        files = [Path(name) for name in names]
+        ordered = [path.stem for path in sorted_pdf_pages(files)]
+        self.assertEqual(ordered, ["page-1", "page-2", "page-3", "page-10", "page-11"])
+        padded = [Path("page-001.png"), Path("page-010.png"), Path("page-002.png")]
+        self.assertEqual([path.stem for path in sorted_pdf_pages(padded)], ["page-001", "page-002", "page-010"])
+
+    def test_catalog_write_is_atomic(self):
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            scan = root / "page.png"
+            _two_panel_page(scan)
+            project = Project()
+            project.import_files([scan])
+            project.set_meta(project.panels[0].id, tags=["cover"], notes="first")
+            project.write_catalog(root / "catalog.json")
+            payload = json.loads((root / "catalog.json").read_text())
+            self.assertEqual(payload["panels"][0]["tags"], ["cover"])
+            leftovers = [p.name for p in root.iterdir() if p.name.endswith(".tmp")]
+            self.assertEqual(leftovers, [], "the temp catalog file is gone after the write")
+
     def test_lettering_is_a_read_then_an_undoable_apply(self):
         with tempfile.TemporaryDirectory() as td:
             root = Path(td)

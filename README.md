@@ -22,7 +22,7 @@ pip install "./pencil_cleaner[gui]"
 
 Start it with `comics-tools`, or `python -m pencil_cleaner gui`.
 
-The window is a clip bin for comic panels. Import copies a scan into the project and does not modify that file, or the file you dropped. A panel is a reference: the source file, a crop rectangle, the deskew angle, and a cleanup setting. Pixels are drawn when the page is shown or exported. They are not written back into the scan.
+The window is a clip bin for comic panels. Import copies a scan into the project and does not modify that file, or the file you dropped. EXIF orientation is applied on the way in, so a phone photo imports the way it looked on screen. A panel is a reference: the source file, a crop rectangle, the deskew angle, and a cleanup setting. Pixels are drawn when the page is shown or exported. They are not written back into the scan.
 
 The library lists every clip, with a thumbnail, tags, notes, and lettering. Filter by tag, or search the notes and the lettering. Drag a clip onto a page. The same clip can be on more than one page. Rearranging a page only changes the layout. Remove from page leaves the clip in the library. Editing the crop updates every place that clip is used. Undo and Redo cover those layout and crop edits.
 

@@ -1058,7 +1058,9 @@ class Project:
         dest = Path(dest)
         dest.parent.mkdir(parents=True, exist_ok=True)
         payload = {"version": 1, "panels": self.catalog_records()}
-        dest.write_text(json.dumps(payload, indent=2) + "\n")
+        tmp = dest.with_name(dest.name + ".tmp")
+        tmp.write_text(json.dumps(payload, indent=2) + "\n")
+        tmp.replace(dest)  # a crash mid-write leaves the old catalog whole
         return dest
 
     @undoable
@@ -1102,7 +1104,8 @@ class Project:
             "updated_at",
         ]
         records = self.catalog_records()
-        with csv_path.open("w", newline="") as handle:
+        csv_tmp = csv_path.with_name(csv_path.name + ".tmp")
+        with csv_tmp.open("w", newline="") as handle:
             writer = csv.DictWriter(handle, fieldnames=fields, extrasaction="ignore")
             writer.writeheader()
             for record in records:
@@ -1110,6 +1113,7 @@ class Project:
                 row["bbox"] = ",".join(str(v) for v in record["bbox"])
                 row["tags"] = "|".join(record["tags"])
                 writer.writerow(row)
+        csv_tmp.replace(csv_path)
         image_dir = dest / "panels"
         image_dir.mkdir(exist_ok=True)
         cache: dict[str, np.ndarray] = {}

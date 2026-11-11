@@ -11,13 +11,29 @@ from pathlib import Path
 from typing import List
 
 import numpy as np
-from PIL import Image
+from PIL import Image, ImageOps
 
 
 def load_gray(path) -> np.ndarray:
-    """Load any raster image as a float32 grayscale array, 0..255."""
-    im = Image.open(path).convert("L")
+    """Load any raster image as a float32 grayscale array, 0..255.
+
+    EXIF orientation is applied, so a phone or camera JPEG comes in the
+    way it looked on screen, not the way the sensor stored it.
+    """
+    with Image.open(path) as raw:
+        im = ImageOps.exif_transpose(raw).convert("L")
     return np.asarray(im).astype(np.float32)
+
+
+def sorted_pdf_pages(files: List[Path]) -> List[Path]:
+    """pdftoppm names pages 1, 2, ... without padding, so a plain sort
+    puts page-10 before page-2. Order them by their page number."""
+    def page_number(path: Path) -> int:
+        tail = path.stem.rsplit("-", 1)[-1]
+        digits = "".join(ch for ch in tail if ch.isdigit())
+        return int(digits) if digits else 0
+
+    return sorted(files, key=page_number)
 
 
 def pdf_to_gray_pages(pdf_path, dpi: int = 300) -> List[np.ndarray]:
@@ -71,7 +87,7 @@ def pdf_to_gray_pages(pdf_path, dpi: int = 300) -> List[np.ndarray]:
             check=True,
             capture_output=True,
         )
-        files = sorted(Path(td).glob("page-*.png"))
+        files = sorted_pdf_pages(list(Path(td).glob("page-*.png")))
         return [load_gray(f) for f in files]
 
 
